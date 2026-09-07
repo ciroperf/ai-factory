@@ -1,0 +1,35 @@
+{
+  "owner": "ciroperf",
+  "controlRepo": "ai-factory",
+  "portfolioRepo": "portfolio",
+  "provider": "subscription",
+  "paused": false,
+  "limits": {
+    "runsPerMonth": 25,
+    "openPrs": 3,
+    "openIdeas": 12
+  },
+  "agents": {
+    "scout": {
+      "model": "haiku",
+      "maxTurns": 8
+    },
+    "architect": {
+      "model": "sonnet",
+      "maxTurns": 20
+    },
+    "builder": {
+      "model": "sonnet",
+      "maxTurns": 40
+    },
+    "publisher": {
+      "model": "haiku",
+      "maxTurns": 15
+    },
+    "mentor": {
+      "model": "sonnet",
+      "maxTurns": 15
+    }
+  },
+  "generatedAt": "2026-09-07T21:14:17+00:00"
+}

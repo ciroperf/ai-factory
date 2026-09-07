@@ -1,0 +1,122 @@
+# Workflow riutilizzabile: e' qui che gira ogni agente del control plane.
+# I workflow veri (scout, architect, mentor) sono tre file di dieci righe
+# che chiamano questo. Un solo posto da correggere quando qualcosa cambia.
+
+name: _agent
+
+on:
+  workflow_call:
+    inputs:
+      agent:
+        description: Nome dell'agente, deve esistere in config.yml
+        type: string
+        required: true
+      prompt_file:
+        description: Percorso del prompt, es. prompts/scout.md
+        type: string
+        required: true
+      allowed_tools:
+        description: Elenco degli strumenti concessi. Meno strumenti = meno token per turno.
+        type: string
+        required: true
+      vars:
+        description: 'Sostituzioni nel prompt, una per riga: CHIAVE=valore'
+        type: string
+        default: ""
+      prefetch_feed:
+        description: Prepara state/feed.md prima di svegliare il modello
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  actions: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60          # rete di sicurezza; il tetto vero e' sullo step
+    concurrency:
+      group: officina-${{ github.repository }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Dipendenze
+        run: python3 -c "import yaml" 2>/dev/null || pip install --quiet pyyaml
+
+      - name: Leggi config.yml
+        id: cfg
+        run: python3 scripts/officina.py outputs "${{ inputs.agent }}"
+
+      # Kill switch, budget del mese, tetto sulle PR aperte.
+      # Gira in Python: se qui ci si ferma, non e' stato speso un token.
+      - name: Preflight
+        id: pre
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/officina.py preflight "${{ inputs.agent }}"
+
+      - name: Digest delle release
+        if: steps.pre.outputs.ok == 'true' && inputs.prefetch_feed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/officina.py feed
+
+      # Il prompt vive in un file versionato, non dentro lo YAML.
+      # Le sostituzioni {{CHIAVE}} arrivano da inputs.vars.
+      - name: Prepara il prompt
+        id: prompt
+        if: steps.pre.outputs.ok == 'true'
+        env:
+          VARS: ${{ inputs.vars }}
+          PROMPT_FILE: ${{ inputs.prompt_file }}
+        run: |
+          set -euo pipefail
+          python3 scripts/officina.py render > /tmp/prompt.md
+          {
+            echo 'text<<OFFICINA_EOF'
+            cat /tmp/prompt.md
+            echo 'OFFICINA_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Solo con provider "foundry". Con gli altri due questo step viene saltato.
+      - name: Accesso ad Azure (OIDC, nessuna chiave statica)
+        if: steps.pre.outputs.ok == 'true' && steps.cfg.outputs.provider == 'foundry'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Agente ${{ inputs.agent }}
+        if: steps.pre.outputs.ok == 'true'
+        timeout-minutes: ${{ fromJSON(steps.cfg.outputs.timeout_min) }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Un solo provider e' attivo per volta: gli altri arrivano vuoti,
+          # e un input vuoto equivale a non passarlo.
+          use_foundry: ${{ steps.cfg.outputs.use_foundry }}
+          claude_code_oauth_token: ${{ steps.cfg.outputs.provider == 'subscription' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          anthropic_api_key: ${{ steps.cfg.outputs.provider == 'api-key' && secrets.ANTHROPIC_API_KEY || '' }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_args: >-
+            --model ${{ steps.cfg.outputs.model }}
+            --max-turns ${{ steps.cfg.outputs.max_turns }}
+            --allowedTools "${{ inputs.allowed_tools }}"
+        env:
+          # Ignorata quando il provider non e' foundry.
+          ANTHROPIC_FOUNDRY_RESOURCE: ${{ steps.cfg.outputs.foundry_resource }}
+          # Senza queste tre righe i task di contorno girerebbero sul modello
+          # principale: e' la singola impostazione che spreca piu' token su Foundry.
+          ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ steps.cfg.outputs.model_opus }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ steps.cfg.outputs.model_sonnet }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ steps.cfg.outputs.model_haiku }}
+          ENABLE_PROMPT_CACHING_1H: ${{ steps.cfg.outputs.caching_1h }}
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN != '' && secrets.GH_ADMIN_TOKEN || github.token }}

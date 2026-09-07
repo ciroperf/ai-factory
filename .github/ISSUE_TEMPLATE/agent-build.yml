@@ -1,0 +1,47 @@
+name: Compito per un agente
+description: Un lavoro concreto che il Builder puo' chiudere in una sola run.
+title: "[build] "
+labels: ["agent:build"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Piu' il compito e' delimitato, meno turni servono all'agente — e meno
+        costa. Se stai per scrivere "e poi anche...", sono due compiti.
+
+  - type: textarea
+    id: obiettivo
+    attributes:
+      label: Obiettivo
+      description: Una riga. Cosa deve essere vero alla fine che ora non lo e'.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cosa
+    attributes:
+      label: Cosa fare
+      description: Elenco puntato. Se conosci i file da toccare, elencali.
+      placeholder: |
+        - Aggiungi l'endpoint POST /api/export
+        - File coinvolti: src/api/routes.ts, src/export/csv.ts
+    validations:
+      required: true
+
+  - type: textarea
+    id: fatto
+    attributes:
+      label: Fatto quando
+      description: Criteri verificabili, non opinioni. L'agente li usa per fermarsi.
+      placeholder: |
+        - `npm test` passa
+        - Una chiamata a /api/export restituisce un CSV con intestazione
+    validations:
+      required: true
+
+  - type: textarea
+    id: vincoli
+    attributes:
+      label: Vincoli
+      description: Cosa NON deve fare. Opzionale ma utile.
+      placeholder: Non aggiungere dipendenze. Non toccare lo schema del database.

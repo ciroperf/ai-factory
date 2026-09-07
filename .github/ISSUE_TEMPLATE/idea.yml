@@ -1,0 +1,40 @@
+name: Idea di progetto
+description: Un progetto nuovo da valutare. Se la approvi, l'Architect crea il repo.
+title: "[idea] "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: Chi ha questo problema e perche' oggi e' fastidioso.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cosa
+    attributes:
+      label: Cosa costruiamo
+      description: Tre o quattro righe concrete. Cosa vede l'utente.
+    validations:
+      required: true
+
+  - type: input
+    id: stack
+    attributes:
+      label: Stack
+      placeholder: Next.js, Postgres, Azure Functions
+
+  - type: input
+    id: skill
+    attributes:
+      label: Skill dimostrate
+      placeholder: Real-time, CRDT, testing end-to-end
+
+  - type: dropdown
+    id: sforzo
+    attributes:
+      label: Sforzo
+      options: ["S — pochi giorni", "M — una settimana", "L — due settimane o piu'"]
+    validations:
+      required: true

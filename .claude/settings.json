@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(node_modules/**)",
+      "Read(**/node_modules/**)",
+      "Read(.next/**)",
+      "Read(dist/**)",
+      "Read(build/**)",
+      "Read(bin/**)",
+      "Read(obj/**)",
+      "Read(**/*.lock)",
+      "Read(**/package-lock.json)",
+      "Read(**/yarn.lock)",
+      "Read(public/images/**)",
+      "Read(**/*.png)",
+      "Read(**/*.jpg)",
+      "Read(**/*.jpeg)",
+      "Read(**/*.gif)"
+    ]
+  }
+}

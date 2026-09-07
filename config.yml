@@ -1,0 +1,118 @@
+# ============================================================
+#  OFFICINA AGENTI — configurazione
+#  Questo e' l'unico file che devi modificare per far girare tutto.
+#  Ogni volta che lo cambi, un workflow rigenera docs/config.json
+#  (la copia che legge la PWA). Non modificare quel file a mano.
+# ============================================================
+
+github:
+  owner: ciroperf
+  control_repo: ai-factory        # questo repo
+  portfolio_repo: portfolio       # il repo del portfolio
+  project_prefix: ""              # prefisso per i repo creati dall'Architect
+
+# ------------------------------------------------------------
+#  DA DOVE ARRIVANO I MODELLI
+#
+#  subscription  usa la tua sottoscrizione Claude. Nessuna fattura nuova:
+#                consuma i limiti del piano. Segreto: CLAUDE_CODE_OAUTH_TOKEN,
+#                lo generi con `claude setup-token` dalla CLI.
+#  api-key       pagamento a consumo su console.claude.com.
+#                Segreto: ANTHROPIC_API_KEY.
+#  foundry       la tua risorsa Azure, autenticata via OIDC. Segreti:
+#                AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
+#
+#  Cambiare provider = cambiare questa riga e aggiungere il segreto giusto.
+#  Nient'altro.
+# ------------------------------------------------------------
+provider: subscription
+
+# Con provider "foundry" questi sono i nomi dei DEPLOYMENT creati in
+# ai.azure.com; con gli altri due sono gli ID dei modelli.
+models:
+  opus: claude-opus-4-8
+  sonnet: claude-sonnet-5
+  haiku: claude-haiku-4-5
+
+# Usato solo quando provider e' "foundry".
+foundry:
+  resource: ciro-foundry
+  # Cache dei prompt a 1 ora invece che 5 minuti. Conviene SOLO se lanci
+  # piu' run ravvicinate sullo stesso repo: la scrittura in cache costa di piu'.
+  prompt_caching_1h: false
+
+# ------------------------------------------------------------
+#  AGENTI
+#  Un agente = un modello + un tetto di turni + un timeout.
+#  Regola: il modello piu' piccolo che sa fare quel lavoro.
+#  Alzare max_turns e' la leva che fa crescere di piu' il costo.
+# ------------------------------------------------------------
+agents:
+  scout:
+    model: haiku
+    max_turns: 8
+    timeout_min: 10
+  architect:
+    model: sonnet
+    max_turns: 20
+    timeout_min: 20
+  builder:
+    model: sonnet
+    max_turns: 40
+    timeout_min: 35
+  publisher:
+    model: haiku
+    max_turns: 15
+    timeout_min: 15
+  mentor:
+    model: sonnet
+    max_turns: 15
+    timeout_min: 20
+
+# ------------------------------------------------------------
+#  GUARDRAIL — qui si tiene sotto controllo la spesa.
+#  Questi controlli girano in bash prima di svegliare l'AI:
+#  costano zero token.
+# ------------------------------------------------------------
+limits:
+  max_runs_per_month_per_repo: 25 # oltre questo numero gli agenti escono subito
+  max_open_prs_per_repo: 3        # niente accumulo di PR da revisionare
+  max_open_ideas: 12              # lo Scout smette di proporre se ce ne sono gia' tante
+  paused: false                   # true = kill switch, blocca ogni agente
+
+# ------------------------------------------------------------
+#  SCOUT — cosa guardare per proporre idee.
+#  I feed vengono letti da uno script, non dall'AI: costa zero token
+#  e l'agente riceve un digest gia' pronto.
+# ------------------------------------------------------------
+scout:
+  ideas_per_run: 3
+  watch:
+    - vercel/next.js
+    - facebook/react
+    - microsoft/typescript
+    - dotnet/aspnetcore
+    - flutter/flutter
+    - modelcontextprotocol/servers
+  interests: >
+    Progetti che dimostrano skill da full-stack developer: React/Next, .NET,
+    Angular, Flutter, Azure, container. Preferisci cose piccole e finibili in
+    una o due settimane di run automatiche, con un'utilita' reale quotidiana
+    o lavorativa. Bonus se il risultato si vede in uno screenshot.
+  avoid: >
+    Cloni di to-do list, tutorial, progetti senza interfaccia visibile,
+    qualsiasi cosa che richieda API a pagamento, dati personali o account
+    di terze parti per funzionare.
+
+# ------------------------------------------------------------
+#  PORTFOLIO — schema verificato sul repo ciroperf/portfolio.
+#  Se cambi la struttura del portfolio, aggiorna questi percorsi.
+# ------------------------------------------------------------
+portfolio:
+  base_branch: main
+  branch_prefix: agent/portfolio-
+  data_file: data/portfolio.json
+  posts_dir: _posts
+  images_dir: public/images
+  post_url_pattern: blog/{slug}
+  tone_reference: _posts/fake-news-detection.md

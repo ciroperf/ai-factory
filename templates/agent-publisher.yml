@@ -1,0 +1,127 @@
+# ============================================================
+#  PUBLISHER — da copiare in .github/workflows/ del repo PORTFOLIO.
+#
+#  Aggiunge un progetto al portfolio aprendo una PR su un branch
+#  ausiliario. Non tocca mai main: il deploy parte solo quando fai
+#  merge tu, e nel frattempo la preview del branch ti fa vedere il
+#  risultato.
+#
+#  Prima di attivarlo: proteggi main in Settings > Branches.
+#
+#  Si lancia dal control plane con:
+#    gh api repos/<owner>/portfolio/dispatches -f event_type=publish-project \
+#      -F 'client_payload[slug]=...' -F 'client_payload[title]=...' \
+#      -F 'client_payload[repo]=owner/nome'
+# ============================================================
+
+name: agent-publisher
+
+on:
+  repository_dispatch:
+    types: [publish-project]
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Slug del progetto, in kebab-case
+        required: true
+        type: string
+      title:
+        description: Titolo leggibile
+        required: true
+        type: string
+      project_repo:
+        description: "Repo del progetto, formato owner/nome"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  PROVIDER: subscription      # subscription | api-key | foundry
+  MODEL: claude-haiku-4-5     # tre file con schema noto: non serve di piu'
+  FOUNDRY_RESOURCE: ciro-foundry
+  MAX_TURNS: "15"
+
+concurrency:
+  group: publisher-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Accesso ad Azure (OIDC)
+        if: env.PROVIDER == 'foundry'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Publisher
+        uses: anthropics/claude-code-action@v1
+        with:
+          use_foundry: ${{ env.PROVIDER == 'foundry' }}
+          claude_code_oauth_token: ${{ env.PROVIDER == 'subscription' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          anthropic_api_key: ${{ env.PROVIDER == 'api-key' && secrets.ANTHROPIC_API_KEY || '' }}
+          base_branch: main
+          prompt: |
+            Pubblica sul portfolio il progetto
+            "${{ github.event.client_payload.title || inputs.title }}"
+            (repo: ${{ github.event.client_payload.repo || inputs.project_repo }},
+            slug: ${{ github.event.client_payload.slug || inputs.slug }}).
+
+            SLUG = ${{ github.event.client_payload.slug || inputs.slug }}
+
+            Passi, in quest'ordine:
+
+            1. Crea il branch agent/portfolio-<SLUG>.
+
+            2. data/portfolio.json — aggiungi UNA voce in fondo all'array
+               "projects", con questa forma esatta:
+                 { "id": "<max degli id esistenti + 1>",
+                   "title": "<titolo>",
+                   "description": "<2-3 frasi: cosa fa, con cosa e' costruito,
+                                    che problema risolve>",
+                   "imageSrc": "/images/<SLUG>.png",
+                   "url": "blog/<SLUG>" }
+               NON riordinare, NON riformattare, NON toccare le altre voci:
+               il diff deve restare di poche righe.
+
+            3. _posts/<SLUG>.md — nuovo post con questo frontmatter:
+                 ---
+                 date: '<data di oggi, YYYY-MM-DD>'
+                 title: <titolo>
+                 tagline: <una riga sul perche' esiste>
+                 preview: >
+                   <paragrafo per la lista del blog>
+                 image: /images/<SLUG>.png
+                 ---
+               Poi il corpo: problema, approccio, decisioni tecniche e perche',
+               risultati. Segui il tono di _posts/fake-news-detection.md:
+               leggilo prima, e' l'unico file di riferimento che ti serve.
+               Prima persona, niente marketing, niente elenchi di buzzword.
+
+            4. public/images/<SLUG>.png — se il README del repo di progetto ha
+               uno screenshot, riusa quel file. Se non c'e', NON inventare
+               un'immagine: lascia il riferimento e scrivi nella descrizione
+               della PR che lo screenshot va aggiunto a mano.
+
+            5. Apri la PR verso main e FERMATI. Non fare merge. Nella
+               descrizione elenca i file toccati e cosa resta da verificare.
+          claude_args: >-
+            --model ${{ env.MODEL }}
+            --max-turns ${{ env.MAX_TURNS }}
+        env:
+          ANTHROPIC_FOUNDRY_RESOURCE: ${{ env.FOUNDRY_RESOURCE }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ env.MODEL }}
+          GH_TOKEN: ${{ github.token }}

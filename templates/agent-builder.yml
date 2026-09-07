@@ -1,0 +1,119 @@
+# ============================================================
+#  BUILDER — da copiare in .github/workflows/ di OGNI repo di progetto.
+#  Questo file e' autonomo: non dipende dal control plane.
+#  Le uniche cose da adattare sono le tre righe sotto "CONFIGURAZIONE".
+#
+#  Segreto richiesto nel repo (o meglio: a livello di account/organizzazione,
+#  cosi' i repo creati dall'Architect se lo trovano gia'), a seconda di PROVIDER:
+#    subscription -> CLAUDE_CODE_OAUTH_TOKEN
+#    api-key      -> ANTHROPIC_API_KEY
+#    foundry      -> AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+# ============================================================
+
+name: agent-builder
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Cosa deve fare l'agente
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  actions: read
+
+env:
+  # ---------------- CONFIGURAZIONE ----------------
+  PROVIDER: subscription          # subscription | api-key | foundry
+  MODEL: claude-sonnet-5          # su foundry: il nome del deployment
+  MODEL_HAIKU: claude-haiku-4-5   # task di contorno sul modello piccolo
+  FOUNDRY_RESOURCE: ciro-foundry  # ignorato se PROVIDER non e' foundry
+  MAX_TURNS: "40"
+  MAX_OPEN_PRS: "3"
+  # ------------------------------------------------
+
+concurrency:
+  group: builder-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.label.name == 'agent:build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      # Se c'e' gia' arretrato da revisionare, non se ne aggiunge altro.
+      # Costa una chiamata API e zero token.
+      - name: Preflight
+        id: pre
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number --jq 'length')
+          echo "PR aperte: $open (tetto: $MAX_OPEN_PRS)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$open" -ge "$MAX_OPEN_PRS" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "Fermato: troppe PR aperte." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Accesso ad Azure (OIDC)
+        if: steps.pre.outputs.ok == 'true' && env.PROVIDER == 'foundry'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Builder
+        if: steps.pre.outputs.ok == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Un provider per volta: gli altri input restano vuoti.
+          use_foundry: ${{ env.PROVIDER == 'foundry' }}
+          claude_code_oauth_token: ${{ env.PROVIDER == 'subscription' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          anthropic_api_key: ${{ env.PROVIDER == 'api-key' && secrets.ANTHROPIC_API_KEY || '' }}
+          base_branch: main
+          branch_prefix: agent/
+          prompt: |
+            Compito: ${{ github.event.issue.body || inputs.prompt }}
+
+            Contesto: issue #${{ github.event.issue.number }} di ${{ github.repository }}.
+
+            Come lavorare:
+            - Branch: agent/issue-${{ github.event.issue.number }}. Mai push su main.
+            - Prima di scrivere, leggi CLAUDE.md e SOLO i file che devi cambiare.
+              Usa Grep per trovarli. Non leggere file interi per "farti un'idea".
+            - Fai passare i test esistenti. Se non ce ne sono e il compito
+              introduce logica, scrivine uno minimo.
+            - Un compito, una PR. Se noti altro da sistemare, scrivilo nella
+              descrizione della PR invece di farlo.
+            - Se il compito e' ambiguo, commenta la domanda sull'issue e fermati.
+              Non indovinare.
+
+            Alla fine: apri la PR verso main, commenta l'issue con il link,
+            fermati. Non fare merge.
+          claude_args: >-
+            --model ${{ env.MODEL }}
+            --max-turns ${{ env.MAX_TURNS }}
+        env:
+          ANTHROPIC_FOUNDRY_RESOURCE: ${{ env.FOUNDRY_RESOURCE }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ env.MODEL }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ env.MODEL_HAIKU }}
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,19 @@
+# Scout — propone idee di progetto. Gira il lunedi' mattina.
+# Non scrive codice: apre solo issue etichettate "idea".
+
+name: agent-scout
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # lunedi' 08:00 in Italia (06:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  scout:
+    uses: ./.github/workflows/_agent.yml
+    secrets: inherit
+    with:
+      agent: scout
+      prompt_file: prompts/scout.md
+      prefetch_feed: true
+      allowed_tools: Read,Grep,Glob,Bash(gh issue create:*),Bash(gh issue list:*)

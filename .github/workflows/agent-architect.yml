@@ -1,0 +1,30 @@
+# Architect — trasforma un'idea approvata in un repo con i compiti dentro.
+# Si sveglia quando aggiungi l'etichetta "idea:approved" a una issue
+# (lo fa la PWA quando approvi, o tu a mano da GitHub).
+
+name: agent-architect
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numero della issue con l'idea da realizzare
+        required: true
+        type: string
+
+jobs:
+  architect:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.label.name == 'idea:approved'
+    uses: ./.github/workflows/_agent.yml
+    secrets: inherit
+    with:
+      agent: architect
+      prompt_file: prompts/architect.md
+      vars: |
+        ISSUE_NUMBER=${{ github.event.issue.number || inputs.issue_number }}
+        OWNER=${{ github.repository_owner }}
+      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(gh:*),Bash(git:*)

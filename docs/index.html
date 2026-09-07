@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F1717">
+<title>Officina Agenti</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <span>Officina</span>
+  </div>
+  <div class="topbar-right">
+    <span id="pausedBadge" class="badge badge-warn" hidden>in pausa</span>
+    <button id="refreshBtn" class="icon-btn" title="Aggiorna" aria-label="Aggiorna">&#8635;</button>
+    <button id="settingsBtn" class="icon-btn" title="Impostazioni" aria-label="Impostazioni">&#9881;</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ---------------- STATO ---------------- -->
+  <section id="view-stato" class="view">
+    <div id="statoSummary" class="summary"></div>
+    <h2 class="section-title">Run recenti</h2>
+    <div id="runs" class="list"></div>
+    <h2 class="section-title">Progetti</h2>
+    <div id="projects" class="list"></div>
+  </section>
+
+  <!-- ---------------- IDEE ---------------- -->
+  <section id="view-idee" class="view" hidden>
+    <p class="hint">Le idee proposte dallo Scout. Approvare una idea sveglia
+      l'Architect, che crea il repo e i primi compiti.</p>
+    <div id="ideas" class="list"></div>
+  </section>
+
+  <!-- ---------------- NUOVO ---------------- -->
+  <section id="view-nuovo" class="view" hidden>
+    <label class="field">
+      <span class="label">Tipo di richiesta</span>
+      <select id="promptKind">
+        <option value="idea">Idea di progetto</option>
+        <option value="build">Compito per un progetto esistente</option>
+      </select>
+    </label>
+
+    <label class="field" id="repoField" hidden>
+      <span class="label">Repo di destinazione</span>
+      <select id="promptRepo"></select>
+    </label>
+
+    <label class="field">
+      <span class="label">Titolo</span>
+      <input id="promptTitle" type="text" placeholder="Es. Dashboard consumi casa" autocomplete="off">
+    </label>
+
+    <label class="field">
+      <span class="label">Descrizione</span>
+      <textarea id="promptBody" rows="9" placeholder="Cosa deve fare l'agente. Piu' e' preciso, meno turni servono — e meno costa."></textarea>
+    </label>
+
+    <p class="hint" id="promptHint"></p>
+    <button id="sendPrompt" class="btn btn-primary">Invia all'Officina</button>
+  </section>
+
+  <!-- ---------------- IMPARATO ---------------- -->
+  <section id="view-imparato" class="view" hidden>
+    <div id="learnList" class="list"></div>
+    <article id="learnDoc" class="doc" hidden></article>
+  </section>
+
+</main>
+
+<nav class="tabbar" role="tablist">
+  <button class="tab is-active" data-view="stato"><span class="ti">&#9679;</span>Stato</button>
+  <button class="tab" data-view="idee"><span class="ti">&#9670;</span>Idee</button>
+  <button class="tab" data-view="nuovo"><span class="ti">&#43;</span>Nuovo</button>
+  <button class="tab" data-view="imparato"><span class="ti">&#9632;</span>Imparato</button>
+</nav>
+
+<!-- ---------------- IMPOSTAZIONI ---------------- -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-panel" role="dialog" aria-label="Impostazioni">
+    <div class="sheet-head">
+      <h2>Impostazioni</h2>
+      <button id="sheetClose" class="icon-btn" aria-label="Chiudi">&times;</button>
+    </div>
+
+    <label class="field">
+      <span class="label">Token GitHub (fine-grained)</span>
+      <input id="tokenInput" type="password" placeholder="github_pat_..." autocomplete="off">
+    </label>
+    <p class="hint">
+      Serve solo per <em>scrivere</em>: creare issue, approvare idee, lanciare
+      agenti. Resta su questo dispositivo e non viene mai inviato altrove.
+      Dai i permessi <strong>Issues</strong>, <strong>Contents</strong> e
+      <strong>Actions</strong> in scrittura, sui soli repo dell'Officina, con
+      scadenza a 90 giorni.
+    </p>
+    <div class="row">
+      <button id="tokenSave" class="btn btn-primary">Salva</button>
+      <button id="tokenClear" class="btn">Rimuovi</button>
+    </div>
+
+    <hr>
+
+    <h3 class="section-title">Kill switch</h3>
+    <p class="hint">Blocca ogni agente al prossimo avvio. Scrive
+      <code>limits.paused</code> in <code>config.yml</code>.</p>
+    <button id="pauseBtn" class="btn btn-danger">Metti in pausa</button>
+
+    <hr>
+    <p class="hint" id="cfgInfo"></p>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+# ============================================================
+#  Officina Agenti — .gitignore del control plane
+#
+#  Nota: docs/config.json NON va ignorato. E' generato da config.yml,
+#  ma deve stare nel repo perche' e' GitHub Pages a servirlo.
+#  Idem .claude/settings.json: e' la deny-list di lettura degli agenti.
+# ============================================================
+
+# --- segreti: mai, per nessun motivo -------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+credential.json
+credentials.json
+azure-credentials.json
+*.publishsettings
+
+# --- file generati a ogni run --------------------------------
+# Digest delle release: lo riscrive officina.py prima dello Scout.
+state/feed.md
+
+# --- Claude Code ---------------------------------------------
+# settings.json e' condiviso e va committato; questo e' l'override locale.
+.claude/settings.local.json
+
+# --- Python ---------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node -----------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# --- editor ---------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# --- sistema operativo ----------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- roba di passaggio ----------------------------------------
+*.log
+*.tmp
+*.bak
+tmp/
+scratch/
+officina-agenti.zip

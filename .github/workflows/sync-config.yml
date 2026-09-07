@@ -1,0 +1,40 @@
+# Tiene allineata la copia di configurazione che legge la PWA.
+# Nessun modello, nessun token: solo Python.
+
+name: sync-config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - config.yml
+      - scripts/officina.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - run: python3 -c "import yaml" 2>/dev/null || pip install --quiet pyyaml
+
+      - run: python3 scripts/officina.py sync-web
+
+      - name: Committa se e' cambiato qualcosa
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/config.json; then
+            echo "docs/config.json gia' allineato"
+            exit 0
+          fi
+          git config user.name "officina-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/config.json
+          git commit -m "Allinea docs/config.json a config.yml"
+          git push
