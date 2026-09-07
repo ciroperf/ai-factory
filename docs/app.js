@@ -9,10 +9,15 @@
 
 const API = 'https://api.github.com';
 const RAW = 'https://raw.githubusercontent.com';
-const TOKEN_KEY = 'officina.pat';
+
+const LEGACY_KEY = 'officina.pat';       // vecchio token in chiaro, si migra
+const VAULT_KEY = 'officina.vault';      // token cifrato con la password
+const SALT_KEY = 'officina.salt';
+const SESSION_KEY = 'officina.session';  // chiave derivata + scadenza
 
 let CFG = null;
 let TOKEN = '';
+let KEY = null;      // chiave AES derivata dalla password, solo in memoria
 let PROJECTS = [];
 let VIEW = 'stato';
 let pollTimer = null;
@@ -48,6 +53,127 @@ function store(key, value) {
     else localStorage.setItem(key, value);
   } catch (_) { /* modalita' privata: si continua senza persistenza */ }
   return value || '';
+}
+
+/* ------------------------------------------------------- lucchetto */
+/* La password non e' sicurezza vera: la pagina e' statica e i dati stanno
+   comunque su GitHub. Fa due cose utili e limitate: tiene fuori chi capita
+   sull'indirizzo per caso, e cifra il token nel localStorage, cosi' chi
+   prende in mano il telefono sbloccato non se lo porta via. */
+
+const ENC = new TextEncoder();
+const DEC = new TextDecoder();
+const b64 = (buf) => btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+
+async function sha256hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', ENC.encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function salt() {
+  let existing = store(SALT_KEY);
+  if (!existing) {
+    existing = b64(crypto.getRandomValues(new Uint8Array(16)));
+    store(SALT_KEY, existing);
+  }
+  return unb64(existing);
+}
+
+async function deriveKey(password) {
+  const base = await crypto.subtle.importKey(
+    'raw', ENC.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt(), iterations: 150000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+
+async function saveToken(token) {
+  TOKEN = token;
+  if (!KEY) { store(LEGACY_KEY, token); return; }
+  if (!token) { store(VAULT_KEY, null); return; }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, KEY, ENC.encode(token));
+  store(VAULT_KEY, JSON.stringify({ iv: b64(iv), ct: b64(ct) }));
+  store(LEGACY_KEY, null);
+}
+
+async function loadToken() {
+  if (!KEY) return store(LEGACY_KEY);
+  const raw = store(VAULT_KEY);
+  if (!raw) {
+    // primo sblocco dopo l'aggiornamento: cifra il vecchio token in chiaro
+    const legacy = store(LEGACY_KEY);
+    if (legacy) { await saveToken(legacy); return legacy; }
+    return '';
+  }
+  try {
+    const v = JSON.parse(raw);
+    const pt = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: unb64(v.iv) }, KEY, unb64(v.ct));
+    return DEC.decode(pt);
+  } catch (_) {
+    return '';   // password cambiata: il vault non si apre piu'
+  }
+}
+
+async function rememberSession() {
+  const days = (CFG.web && CFG.web.sessionDays) || 30;
+  const raw = await crypto.subtle.exportKey('raw', KEY);
+  store(SESSION_KEY, JSON.stringify({
+    k: b64(raw), exp: Date.now() + days * 86400000
+  }));
+}
+
+async function resumeSession() {
+  const raw = store(SESSION_KEY);
+  if (!raw) return false;
+  try {
+    const { k, exp } = JSON.parse(raw);
+    if (!k || Date.now() > exp) { store(SESSION_KEY, null); return false; }
+    KEY = await crypto.subtle.importKey(
+      'raw', unb64(k), { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+    return true;
+  } catch (_) {
+    store(SESSION_KEY, null);
+    return false;
+  }
+}
+
+/* Risolve quando l'app puo' partire. */
+function unlock() {
+  const hash = (CFG.web && CFG.web.passwordSha256) || '';
+  const lock = $('#lock');
+
+  // nessuna password configurata: nessun lucchetto
+  if (!hash) { lock.hidden = true; return Promise.resolve(); }
+
+  return resumeSession().then((resumed) => {
+    if (resumed) { lock.hidden = true; return; }
+
+    return new Promise((done) => {
+      lock.hidden = false;
+      $('#lockForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = $('#lockInput');
+        const err = $('#lockError');
+        if (await sha256hex(input.value) !== hash) {
+          err.hidden = false;
+          input.value = '';
+          input.focus();
+          return;
+        }
+        err.hidden = true;
+        KEY = await deriveKey(input.value);
+        if ($('#lockRemember').checked) await rememberSession();
+        input.value = '';
+        lock.hidden = true;
+        done();
+      });
+    });
+  });
 }
 
 function ago(iso) {
@@ -94,9 +220,26 @@ async function api(path, opts = {}) {
 
 const ctl = () => `${CFG.owner}/${CFG.controlRepo}`;
 
-/* Legge un file pubblico senza consumare il rate limit autenticato. */
+/* Legge un file di testo dal repo.
+ *
+ * Con un token passa dall'API autenticata, cosi' funziona anche sui repo
+ * privati. Senza token ripiega su raw.githubusercontent, che vale solo per
+ * i repo pubblici e non consuma il rate limit autenticato. */
 async function raw(repo, path) {
-  const res = await fetch(`${RAW}/${repo}/main/${path}?t=${Date.now()}`);
+  const bust = 't=' + Date.now();
+
+  if (TOKEN) {
+    const res = await fetch(`${API}/repos/${repo}/contents/${path}?ref=main&${bust}`, {
+      headers: {
+        Authorization: 'Bearer ' + TOKEN,
+        Accept: 'application/vnd.github.raw'
+      }
+    });
+    if (!res.ok) throw new Error('File non leggibile: ' + path);
+    return res.text();
+  }
+
+  const res = await fetch(`${RAW}/${repo}/main/${path}?${bust}`);
   if (!res.ok) throw new Error('File non trovato: ' + path);
   return res.text();
 }
@@ -232,7 +375,9 @@ async function loadStato() {
     <div><b>${thisMonth}</b><span>run nel mese</span></div>`;
 
   if (!PROJECTS.length) {
-    projBox.appendChild(el('div', 'empty', 'Ancora nessun progetto. Approva un\'idea per cominciare.'));
+    projBox.appendChild(el('div', 'empty', TOKEN
+      ? 'Ancora nessun progetto. Approva un\'idea per cominciare.'
+      : 'Nessun progetto leggibile. Su un repo privato serve il token: aprilo dalle impostazioni.'));
   }
   PROJECTS.forEach((p) => {
     const card = el('div', 'card');
@@ -496,7 +641,9 @@ function setupPolling() {
 
 async function main() {
   CFG = await (await fetch('config.json?t=' + Date.now())).json();
-  TOKEN = store(TOKEN_KEY);
+
+  await unlock();               // si ferma qui finche' la password non e' giusta
+  TOKEN = await loadToken();
 
   $('#cfgInfo').innerHTML =
     `Control plane: <code>${esc(ctl())}</code><br>` +
@@ -518,17 +665,21 @@ async function main() {
   $('#sheetClose').onclick = () => { $('#sheet').hidden = true; };
   $('#sheet').onclick = (e) => { if (e.target.id === 'sheet') $('#sheet').hidden = true; };
 
-  $('#tokenSave').onclick = () => {
-    TOKEN = $('#tokenInput').value.trim();
-    store(TOKEN_KEY, TOKEN);
-    toast(TOKEN ? 'Token salvato su questo dispositivo.' : 'Token vuoto.');
+  $('#tokenSave').onclick = async () => {
+    await saveToken($('#tokenInput').value.trim());
+    toast(TOKEN
+      ? 'Token salvato e cifrato su questo dispositivo.'
+      : 'Token vuoto.');
     refreshView();
   };
-  $('#tokenClear').onclick = () => {
-    TOKEN = '';
-    store(TOKEN_KEY, null);
+  $('#tokenClear').onclick = async () => {
+    await saveToken('');
     $('#tokenInput').value = '';
     toast('Token rimosso.');
+  };
+  $('#lockNowBtn').onclick = () => {
+    store(SESSION_KEY, null);
+    location.reload();
   };
   $('#pauseBtn').onclick = () => {
     const btn = $('#pauseBtn');

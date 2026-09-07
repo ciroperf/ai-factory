@@ -4,6 +4,10 @@
   "portfolioRepo": "portfolio",
   "provider": "subscription",
   "paused": false,
+  "web": {
+    "passwordSha256": "849b4e537fa46f4232ee09b603ce1f9b8538773939df5cafbe0fe6234db53fbd",
+    "sessionDays": 30
+  },
   "limits": {
     "runsPerMonth": 25,
     "openPrs": 3,
@@ -31,5 +35,5 @@
       "maxTurns": 15
     }
   },
-  "generatedAt": "2026-09-07T21:14:17+00:00"
+  "generatedAt": "2026-09-07T21:53:40+00:00"
 }

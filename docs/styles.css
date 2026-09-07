@@ -257,6 +257,35 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
 .doc a { color: var(--accent); }
 .back { margin-bottom: 12px; }
 
+/* ---------------- lock ---------------- */
+
+.lock {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--ground);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.lock-panel {
+  width: 100%; max-width: 320px;
+  display: flex; flex-direction: column; gap: 12px;
+  text-align: center;
+}
+.mark-lg {
+  width: 34px; height: 34px; border-radius: 7px;
+  align-self: center;
+  box-shadow: inset 0 0 0 7px var(--ground);
+}
+.lock-panel h1 {
+  font-size: 22px; margin: 6px 0 0; letter-spacing: -.02em; font-weight: 650;
+}
+.lock-sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 4px; }
+.lock-remember {
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  font-size: 13px; color: var(--ink-soft); cursor: pointer;
+}
+.lock-remember input { width: auto; margin: 0; }
+.lock-error { color: var(--crit); font-size: 13px; margin: 0; }
+
 /* ---------------- toast ---------------- */
 
 .toast {

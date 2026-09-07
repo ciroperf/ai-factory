@@ -12,6 +12,23 @@
 </head>
 <body>
 
+<!-- Schermata di sblocco. Resta visibile finche' la password non e' corretta. -->
+<div id="lock" class="lock">
+  <form class="lock-panel" id="lockForm">
+    <span class="mark mark-lg" aria-hidden="true"></span>
+    <h1>Officina</h1>
+    <p class="lock-sub">Inserisci la password per continuare.</p>
+    <input id="lockInput" type="password" placeholder="Password" autocomplete="current-password"
+           autofocus enterkeyhint="go">
+    <label class="lock-remember">
+      <input id="lockRemember" type="checkbox" checked>
+      <span>Resta sbloccato su questo dispositivo</span>
+    </label>
+    <button class="btn btn-primary" type="submit">Entra</button>
+    <p id="lockError" class="lock-error" hidden>Password errata.</p>
+  </form>
+</div>
+
 <header class="topbar">
   <div class="brand">
     <span class="mark" aria-hidden="true"></span>
@@ -116,6 +133,14 @@
     <p class="hint">Blocca ogni agente al prossimo avvio. Scrive
       <code>limits.paused</code> in <code>config.yml</code>.</p>
     <button id="pauseBtn" class="btn btn-danger">Metti in pausa</button>
+
+    <hr>
+
+    <h3 class="section-title">Sessione</h3>
+    <p class="hint">Blocca l'app su questo dispositivo: alla prossima apertura
+      ti richiede la password, e il token torna illeggibile finche' non la
+      inserisci.</p>
+    <button id="lockNowBtn" class="btn">Blocca ora</button>
 
     <hr>
     <p class="hint" id="cfgInfo"></p>

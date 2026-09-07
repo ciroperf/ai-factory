@@ -203,6 +203,10 @@ def cmd_sync_web():
         "portfolioRepo": cfg["github"]["portfolio_repo"],
         "provider": cfg.get("provider", "subscription"),
         "paused": bool(cfg.get("limits", {}).get("paused")),
+        "web": {
+            "passwordSha256": (cfg.get("web") or {}).get("password_sha256", ""),
+            "sessionDays": (cfg.get("web") or {}).get("session_days", 30),
+        },
         "limits": {
             "runsPerMonth": cfg["limits"]["max_runs_per_month_per_repo"],
             "openPrs": cfg["limits"]["max_open_prs_per_repo"],

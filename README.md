@@ -1,226 +1,213 @@
-# Officina Agenti
+<div align="center">
 
-Agenti AI che portano avanti progetti personali su GitHub, aprono PR sui repo,
-pubblicano sul portfolio e alla fine spiegano cosa c'e' da imparare.
+# 🏭 Officina Agenti
 
-Niente server, niente database: il backend e' GitHub. Le Issue sono la coda dei
-prompt, i workflow run sono lo stato di avanzamento, le PR sono i risultati, un
-file JSON e' il registro. Il modello arriva dalla tua sottoscrizione Azure
-tramite Microsoft Foundry, autenticato via OIDC — nessuna chiave statica.
+**A workshop where AI agents ship your side projects — and then teach you what you built.**
 
-```
-config.yml          l'unico file da configurare
-prompts/            le istruzioni dei cinque agenti
-scripts/officina.py tutto cio' che si puo' decidere senza un modello
-templates/          i workflow da copiare negli altri repo
-docs/               la PWA, pubblicata su GitHub Pages
-state/              il registro dei progetti
-learnings/          l'output del Mentor
-```
+Agents pick ideas, write the code, open pull requests, publish to your portfolio,
+and finish by explaining what you'd need to defend the work in an interview.
+No servers, no database, no hosting bill.
+
+[![Runtime](https://img.shields.io/badge/runtime-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](https://docs.github.com/actions)
+[![Agents](https://img.shields.io/badge/agents-Claude%20Code-D97757?logo=anthropic&logoColor=white)](https://code.claude.com/docs/en/github-actions)
+[![UI](https://img.shields.io/badge/UI-offline%20PWA-5A0FC8?logo=pwa&logoColor=white)](docs/)
+[![Infra](https://img.shields.io/badge/infra-zero%20servers-0F766E)](#why-it-costs-nothing-to-run)
+[![Dependencies](https://img.shields.io/badge/runtime%20deps-0-1B8079)](docs/app.js)
+[![License](https://img.shields.io/badge/license-MIT-000000)](LICENSE)
+
+</div>
 
 ---
 
-## Setup
+## The idea
 
-Serve una volta sola. Circa quaranta minuti, di cui trenta su Azure.
+GitHub is already the backend everyone tries to build.
 
-### 1. Il repo
+| You need | GitHub already gives you |
+| --- | --- |
+| A prompt queue | Issues |
+| Progress tracking | Workflow runs, with logs and timings |
+| Reviewable output | Pull requests |
+| A database | A JSON file in the repo |
+| Quality control | Branch protection |
+| An API for your phone | REST, CORS-enabled, free |
 
-Crea `ai-factory` **pubblico** e copiaci dentro questi file.
+So this repo adds the only things GitHub doesn't: five agents with a job each,
+a control panel that fits in your pocket, and the guardrails that keep an
+autonomous system from turning into forty junk PRs and a surprise bill.
 
-Pubblico non e' un dettaglio: i minuti di GitHub Actions sono gratis e
-illimitati sui repo pubblici, GitHub Pages funziona senza piano a pagamento, e
-la PWA puo' leggere lo stato senza token. Qui non finisce nulla di segreto —
-i segreti stanno nei Secrets, che restano privati anche in un repo pubblico.
+**No agent can merge.** They produce branches and pull requests; a human moves
+code to `main`. That isn't only caution — it's the reason you can still talk
+about these projects in an interview.
 
-Poi crea le etichette (Issues > Labels):
+---
 
-| Etichetta | A cosa serve |
-|---|---|
-| `idea` | proposta dello Scout, in attesa del tuo giudizio |
-| `idea:approved` | la aggiungi tu (o la PWA): sveglia l'Architect |
-| `agent:build` | compito pronto: sveglia il Builder |
-| `agent:queued` | compito in coda, non ancora sbloccato |
+## How it works
 
-### 2. Da dove arrivano i modelli
+```mermaid
+flowchart LR
+    PWA["📱 PWA<br/><i>your phone</i>"] -->|opens issue| CTL["🏭 ai-factory<br/><i>issues + state</i>"]
+    CTL -->|label / cron| ACT["⚙️ GitHub Actions<br/><i>ephemeral runner</i>"]
+    ACT -->|branch + PR| PRJ["📦 project repo"]
+    ACT -.->|writes state| CTL
+    CTL -.->|reads state| PWA
 
-Si sceglie con una riga in `config.yml`:
+    PRJ ==>|when finished| PUB["✍️ publisher"]
+    PUB -->|PR on portfolio| REV{{"👤 you merge"}}
+    REV -->|only then| DEP["🚀 deploy"]
+
+    style ACT stroke:#1B8079,stroke-width:2px
+    style PUB stroke:#1B8079,stroke-width:2px
+    style REV stroke:#B0761A,stroke-width:2px
+```
+
+An issue is the prompt. A run is the progress bar. A pull request is the result.
+The loop stops and waits for a human exactly twice: approving an idea, and
+merging a PR.
+
+---
+
+## The five agents
+
+| Agent | Wakes on | Model | What it produces |
+| --- | --- | --- | --- |
+| 🔭 **Scout** | Monday cron | Haiku | Three project ideas as issues, each tied to a skill worth showing |
+| 📐 **Architect** | You approve an idea | Sonnet | A new repo, its `CLAUDE.md`, and 5–8 ordered build tasks |
+| 🔨 **Builder** | An `agent:build` issue | Sonnet | Working code on a branch, tests passing, one PR |
+| ✍️ **Publisher** | A project completes | Haiku | A PR on your portfolio: entry, blog post, screenshot |
+| 🎓 **Mentor** | A project ships | Sonnet | `learnings/<slug>.md` — key decisions, interview questions, and the gaps |
+
+The Mentor is what keeps the system honest. A portfolio full of projects you
+can't explain is worth less than three projects you built yourself.
+
+---
+
+## Quickstart
+
+```bash
+gh repo create ai-factory --public --clone
+# copy these files in, then:
+git add . && git commit -m "Officina Agenti" && git push
+```
+
+Then four things: add your model credential as a repository secret, create the
+four labels, install the [Claude GitHub App](https://github.com/apps/claude),
+and turn on Pages from `main` → `/docs`.
+
+**→ Full walkthrough in [SETUP.md](SETUP.md)**
+
+Before spending a single token, dry-run it: set `paused: true`, trigger
+`agent-scout`, and watch it stop at preflight.
+
+---
+
+## Configuration
+
+Everything lives in one file. No code changes to switch model provider,
+retune costs, or stop the world.
 
 ```yaml
-provider: subscription   # subscription | api-key | foundry
+provider: subscription          # subscription | api-key | foundry
+
+agents:
+  builder:  { model: sonnet, max_turns: 40, timeout_min: 35 }
+  scout:    { model: haiku,  max_turns: 8,  timeout_min: 10 }
+
+limits:
+  max_runs_per_month_per_repo: 25   # hard stop, checked before any model runs
+  max_open_prs_per_repo: 3          # no new work while review is backed up
+  paused: false                     # kill switch, also a button in the app
 ```
 
-| Provider | Cosa serve | Come si paga |
-|---|---|---|
-| `subscription` | `CLAUDE_CODE_OAUTH_TOKEN` | consuma i limiti del piano Claude che gia' hai, nessuna fattura nuova |
-| `api-key` | `ANTHROPIC_API_KEY` da [console.claude.com](https://console.claude.com) | a consumo, costo separato e prevedibile |
-| `foundry` | i tre segreti Azure qui sotto | sulla tua sottoscrizione Azure |
+---
 
-**Con `subscription`** (il default): installa la CLI di Claude Code, esegui
-`claude setup-token`, copia il token che stampa. E' un token a vita lunga
-legato al tuo abbonamento, quindi trattalo come una password.
+## The control panel
 
-**Con `foundry`**: serve una sottoscrizione Azure **a pagamento** — i modelli
-Claude passano dall'Azure Marketplace, e trial, student e sponsored vengono
-rifiutati con *"no valid payment method"*. Poi:
+A vanilla-JS PWA served from `docs/`. **Zero runtime dependencies** — no
+framework, no build step, nothing loaded from a CDN. Install it from your phone
+and it behaves like an app.
 
-1. Su [ai.azure.com](https://ai.azure.com/) crea la risorsa. Annota il **nome**
-   e riportalo in `foundry.resource`.
-2. Crea i deployment (Haiku e Sonnet bastano) scegliendo una **versione
-   specifica**, mai "auto-update to latest". Dai al deployment lo stesso nome
-   dell'ID del modello: cosi' `models:` in `config.yml` e' gia' corretto.
-3. Registra un'app **Microsoft Entra** con una *federated identity credential*
-   per i tuoi repo
-   ([guida](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect)),
-   e assegnale il ruolo **Azure AI User** sulla risorsa.
-4. Annota client ID, tenant ID, subscription ID. Metti un **budget alert**.
+<table>
+<tr>
+<td width="25%"><b>Status</b><br/>Live runs, durations, project stages</td>
+<td width="25%"><b>Ideas</b><br/>Approve or archive what Scout proposes</td>
+<td width="25%"><b>New</b><br/>Write a prompt on the train</td>
+<td width="25%"><b>Learned</b><br/>Mentor's notes, the night before an interview</td>
+</tr>
+</table>
 
-Cambiare provider piu' avanti significa cambiare quella riga e aggiungere il
-segreto: i workflow si adattano da soli.
-
-### 3. Segreti su GitHub
-
-I secrets di Actions **non esistono a livello di account personale**: stanno sui
-repository (oppure su un'organizzazione). Quindi vai in
-`https://github.com/<utente>/ai-factory/settings/secrets/actions` e aggiungi:
-
-| Segreto | Quando serve |
-|---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` | provider `subscription` |
-| `ANTHROPIC_API_KEY` | provider `api-key` |
-| `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | provider `foundry` |
-| `GH_ADMIN_TOKEN` | sempre: PAT classico con scope `repo`, serve all'Architect per **creare** i repo dei progetti e al workflow `sync-secrets` per propagare le credenziali |
-
-Stessi segreti anche nel repo del portfolio, escluso `GH_ADMIN_TOKEN`.
-
-**E i repo che crea l'Architect?** Nascerebbero senza credenziale. Ci pensa il
-workflow `sync-secrets`: quando mergi la PR dell'Architect, `state/projects.json`
-cambia su `main` e il workflow copia il segreto in tutti i repo registrati. Il
-valore non passa mai da un agente, sta solo in quel job.
-
-Se un giorno preferisci non pensarci, sposta i repo in un'**organizzazione**
-gratuita: i secrets a livello di org valgono per tutti i repo pubblici anche sul
-piano Free, presenti e futuri.
-
-Se usi i template `agent-builder.yml` e `agent-publisher.yml`, ricordati di
-allineare anche la riga `PROVIDER:` in cima a quei file.
-
-### 4. La GitHub App
-
-Installa la [Claude GitHub App](https://github.com/apps/claude) sui repo
-interessati. E' l'identita' con cui gli agenti fanno commit e commentano: senza,
-i workflow partono ma non riescono a scrivere.
-
-### 5. GitHub Pages
-
-*Settings > Pages*: sorgente **Deploy from a branch**, branch `main`, cartella
-`/docs`. Dopo un minuto la PWA e' su
-`https://<tuo-utente>.github.io/ai-factory/`.
-
-Aprila dal telefono e usa "Aggiungi alla schermata Home": diventa un'app.
-
-### 6. Il token per la PWA
-
-L'app legge senza token. Per **scrivere** — creare issue, approvare idee,
-mettere in pausa — serve un
-[fine-grained PAT](https://github.com/settings/personal-access-tokens/new):
-
-- **Repository access**: solo i repo dell'Officina.
-- **Permissions**: `Issues` read/write, `Contents` read/write, `Actions` read/write.
-- **Expiration**: 90 giorni.
-
-Incollalo nelle impostazioni dell'app (l'icona a ingranaggio). Resta su quel
-dispositivo, in `localStorage`, e non viene mai inviato altrove. La pagina non
-carica codice da terzi proprio per questo motivo: tienila cosi'.
-
-### 7. Il repo del portfolio
-
-1. **Prima di tutto**, proteggi `main`: *Settings > Branches > Add rule*,
-   `main`, spunta "Require a pull request before merging". Da questo momento
-   nemmeno un prompt sbagliato puo' far partire un deploy.
-2. Copia `templates/agent-publisher.yml` in `.github/workflows/`.
-3. Aggiungi i tre segreti Azure.
-
-### 8. La prima prova
-
-Apri una issue in `ai-factory` con il template "Idea di progetto", mettici
-l'etichetta `idea:approved` e guarda la scheda Actions. Se l'Architect crea il
-repo, il sistema funziona.
-
-Se vuoi provare senza spendere: metti `limits.paused: true` in `config.yml`,
-lancia il workflow e verifica che si fermi al preflight.
+It's gated by a password and keeps your GitHub token **encrypted at rest**
+(AES-GCM, key derived with PBKDF2) instead of sitting in plain `localStorage`.
+Sessions persist for 30 days; *Lock now* ends one immediately.
 
 ---
 
-## Come si usa, un giorno qualsiasi
+## Why it costs nothing to run
 
-1. **Lunedi' mattina** lo Scout apre tre idee. Le trovi nella scheda *Idee*.
-2. **Approvi** quella che ti convince. L'Architect crea il repo, scrive
-   `CLAUDE.md` e spacca il lavoro in cinque-otto compiti; ne apre uno.
-3. **Il Builder** lavora sul compito e apre una PR. Ti arriva la notifica.
-4. **Revisioni e fai merge.** Se qualcosa non va, commenti `@claude sistema X`
-   sulla PR e riprende da li'.
-5. Finiti i compiti, **il Publisher** apre la PR sul portfolio. Guardi la
-   preview del branch, e se ti piace fai merge: il deploy parte da solo.
-6. **Il Mentor** scrive `learnings/<slug>.md`. Lo leggi dalla scheda *Imparato*
-   il giorno prima di un colloquio.
+- **GitHub Actions** — free and unmetered on public repositories.
+- **GitHub Pages** — free static hosting for the panel.
+- **State** — JSON files in the repo; nothing to provision, nothing to back up.
+- **Models** — your existing Claude subscription, an API key, or your own Azure
+  resource. One line in `config.yml` decides which.
 
-Tu decidi due cose: quali idee approvare e quali PR mergiare. Il resto e'
-automatico, e nessun agente puo' fare merge.
+The only real cost is model usage, and roughly 80% of it is the Builder.
 
----
+### Token efficiency isn't an afterthought
 
-## Dove si controlla il costo
+<details>
+<summary><b>Six things this repo does so runs stay cheap</b></summary>
 
-Il Builder vale circa l'80% del consumo. Tutte le leve sono in `config.yml`.
+<br/>
 
-Con `provider: subscription` non arriva nessuna fattura, ma il consumo non
-sparisce: le run degli agenti attingono agli stessi limiti del piano che usi
-per lavorare. Se una mattina Claude ti dice che hai finito i messaggi mentre
-tre Builder stanno macinando, e' questo. Tieni `max_runs_per_month_per_repo`
-basso all'inizio e alzalo quando sai quanto pesano davvero le run.
+1. **`ANTHROPIC_DEFAULT_HAIKU_MODEL` is set everywhere.** On Microsoft Foundry,
+   without it, background tasks fall back to the primary model. Single biggest
+   waste when missing.
+2. **`--allowedTools` is narrow.** Every granted tool occupies system-prompt
+   space on *every* turn.
+3. **Scout never browses the web.** A Python step hands it a prebuilt digest of
+   release notes — worth roughly 90% of that agent's cost.
+4. **Preflight runs in Python.** Kill switch, budget and PR caps are decided
+   without waking a model. When it stops, nothing was spent.
+5. **`CLAUDE.md` is short** and `.claude/settings.json` denies reads of
+   `node_modules`, build output, lock files and images. That file is re-read on
+   every run of every agent.
+6. **Issue templates demand verifiable criteria.** A precise task closes in
+   fewer turns — the highest-leverage optimization of the six.
 
-| Leva | Dove | Effetto |
-|---|---|---|
-| `agents.*.model` | config.yml | Scout e Publisher su Haiku non peggiorano di niente il risultato |
-| `agents.*.max_turns` | config.yml | il tetto duro su quanto puo' costare una singola run |
-| `limits.max_runs_per_month_per_repo` | config.yml | oltre il tetto gli agenti escono al preflight, prima di spendere un token |
-| `limits.max_open_prs_per_repo` | config.yml | niente lavoro nuovo se c'e' arretrato da revisionare |
-| `limits.paused` | config.yml, o il bottone nella PWA | ferma tutto |
+To cut further, in this order: smaller issues, then lower `max_turns`, then a
+smaller model. Downgrading the model first usually costs *more*, because the
+agent needs more turns to do the same work.
 
-Cose gia' fatte per non sprecare token, che vale la pena non disfare:
-
-- **`ANTHROPIC_DEFAULT_HAIKU_MODEL` e' impostato ovunque.** Su Foundry, senza
-  questa variabile, anche i task di contorno girerebbero sul modello grande.
-  E' la singola impostazione che spreca di piu' se manca.
-- **`--allowedTools` e' stretto.** Ogni strumento concesso occupa spazio nel
-  prompt di sistema a *ogni* turno.
-- **Lo Scout non naviga il web.** Uno script Python gli prepara
-  `state/feed.md`: costa zero token invece di una decina di ricerche.
-- **Il preflight e' in Python.** Kill switch, budget e cap sulle PR si
-  decidono senza svegliare il modello.
-- **`CLAUDE.md` e' corto** e `.claude/settings.json` vieta la lettura di
-  `node_modules`, build, lock file e immagini. Ogni riga di quel file viene
-  riletta a ogni run di ogni agente.
-- **I template delle issue** costringono a scrivere criteri verificabili: un
-  compito chiaro si chiude in meno turni.
-
-Se vuoi ridurre ancora, l'ordine giusto e': issue piu' piccole, poi
-`max_turns` piu' basso, poi modello piu' piccolo. Cambiare modello per primo
-di solito costa di piu', perche' l'agente impiega piu' turni a fare la stessa cosa.
-
-`foundry.prompt_caching_1h` conviene solo se lanci piu' run ravvicinate sullo
-stesso repo: la scrittura in cache a un'ora costa piu' di quella a cinque
-minuti, quindi con run sporadiche si paga senza mai riusarla.
+</details>
 
 ---
 
-## Note
+## Guardrails
 
-- I workflow schedulati nei repo pubblici vengono disattivati da GitHub dopo
-  60 giorni senza attivita'. L'Officina committa spesso, quindi non dovrebbe
-  succedere: se lo Scout smette di partire, e' questa la ragione.
-- I segreti non sono disponibili nelle PR provenienti da fork. Irrilevante
-  finche' lavori da solo.
-- `docs/config.json` e' generato dal workflow `sync-config` a partire da
-  `config.yml`. Non modificarlo a mano.
+| Rule | Enforced by |
+| --- | --- |
+| No agent pushes to `main` | Branch protection, not a prompt |
+| No agent triggers another | Empty `allowed_bots` — no chain reactions |
+| One run per repo at a time | `concurrency` group |
+| Hard ceiling per run | `timeout-minutes` **and** `--max-turns` |
+| Stop everything, now | `limits.paused`, or the button in the app |
+
+---
+
+## Layout
+
+```
+config.yml              the only file you configure
+prompts/                what each agent is told
+scripts/officina.py     everything decidable without a model
+templates/              workflows to drop into project and portfolio repos
+docs/                   the PWA
+state/projects.json     the registry
+learnings/              Mentor's output
+```
+
+---
+
+<div align="center">
+<sub>Built for <a href="https://github.com/ciroperf">@ciroperf</a> · MIT</sub>
+</div>
