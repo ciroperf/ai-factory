@@ -132,13 +132,16 @@ def cmd_preflight(agent):
     since = datetime.now(timezone.utc).replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
     ).strftime("%Y-%m-%d")
+    # Contano solo le run degli agenti: sync-config, sync-secrets e i deploy
+    # di Pages sono lavoro di servizio e non consumano modelli.
     used = 0
     data = gh(f"/repos/{repo}/actions/runs",
-              {"created": f">={since}", "per_page": "1"})
+              {"created": f">={since}", "per_page": "100"})
     if data:
-        used = int(data.get("total_count", 0))
+        used = sum(1 for r in data.get("workflow_runs", [])
+                   if str(r.get("name", "")).startswith("agent-"))
         if used >= cap:
-            stop(f"Budget del mese esaurito: {used}/{cap} run in `{repo}`. "
+            stop(f"Budget del mese esaurito: {used}/{cap} run di agenti in `{repo}`. "
                  "Alza `limits.max_runs_per_month_per_repo` o aspetta il mese prossimo.")
 
     # 3. cap sulle PR aperte: niente lavoro nuovo se c'e' arretrato

@@ -9,7 +9,7 @@
     "sessionDays": 30
   },
   "limits": {
-    "runsPerMonth": 25,
+    "runsPerMonth": 100,
     "openPrs": 3,
     "openIdeas": 12
   },
@@ -35,5 +35,5 @@
       "maxTurns": 15
     }
   },
-  "generatedAt": "2026-09-07T21:53:40+00:00"
+  "generatedAt": "2026-09-07T22:46:31+00:00"
 }

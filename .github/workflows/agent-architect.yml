@@ -158,4 +158,4 @@ jobs:
         OWNER=${{ github.repository_owner }}
         SLUG=${{ needs.prepara.outputs.slug }}
         PROJECT_REPO=${{ needs.prepara.outputs.repo }}
-      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(gh issue:*),Bash(gh api:*),Bash(gh pr:*),Bash(git:*)
+      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(git:*),Bash(cd:*),Bash(ls:*),Bash(mkdir:*),Bash(gh repo clone:*),Bash(gh issue:*),Bash(gh pr:*),Bash(gh label:*)

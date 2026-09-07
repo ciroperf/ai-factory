@@ -186,8 +186,15 @@ Paste it into the app's settings. On a private repo it's required even to read.
 
 ## 7. The portfolio repo
 
-1. **First**, protect `main`: *Settings → Branches → Add rule* → require a pull
-   request before merging. From then on no prompt mistake can trigger a deploy.
+1. **First**, protect `main`: *Settings → Branches → Add branch protection rule*,
+   pattern `main`, then tick:
+   - **Require a pull request before merging**
+   - **Require approvals**, set to **1**
+
+   The second one is what actually makes you the gate. The PR author is the
+   Claude bot, so your approval counts — and without it the merge button stays
+   disabled. A prompt saying "don't merge" is a request to a model; this is
+   enforcement.
 2. Copy `templates/agent-publisher.yml` into `.github/workflows/`.
 3. Add the model secret.
 
