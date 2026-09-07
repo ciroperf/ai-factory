@@ -98,7 +98,7 @@ limits:
   max_runs_per_month_per_repo: 25 # oltre questo numero gli agenti escono subito
   max_open_prs_per_repo: 3        # niente accumulo di PR da revisionare
   max_open_ideas: 12              # lo Scout smette di proporre se ce ne sono gia' tante
-  paused: true                   # true = kill switch, blocca ogni agente
+  paused: false                   # true = kill switch, blocca ogni agente
 
 # ------------------------------------------------------------
 #  SCOUT — cosa guardare per proporre idee.
