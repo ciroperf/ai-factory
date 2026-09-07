@@ -20,7 +20,7 @@
     },
     "architect": {
       "model": "sonnet",
-      "maxTurns": 20
+      "maxTurns": 45
     },
     "builder": {
       "model": "sonnet",
@@ -35,5 +35,5 @@
       "maxTurns": 15
     }
   },
-  "generatedAt": "2026-09-07T22:46:31+00:00"
+  "generatedAt": "2026-09-07T22:52:32+00:00"
 }

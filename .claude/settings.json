@@ -1,6 +1,12 @@
 {
   "permissions": {
     "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push --force:*)",
+      "Bash(git push origin main:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh auth:*)",
       "Read(node_modules/**)",
       "Read(**/node_modules/**)",
       "Read(.next/**)",

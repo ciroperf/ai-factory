@@ -74,8 +74,8 @@ agents:
     timeout_min: 10
   architect:
     model: sonnet
-    max_turns: 20
-    timeout_min: 20
+    max_turns: 45          # clona, scrive, apre 2 PR e 6 issue: 20 non bastavano
+    timeout_min: 30
   builder:
     model: sonnet
     max_turns: 40

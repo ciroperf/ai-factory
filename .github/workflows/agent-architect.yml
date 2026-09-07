@@ -158,4 +158,8 @@ jobs:
         OWNER=${{ github.repository_owner }}
         SLUG=${{ needs.prepara.outputs.slug }}
         PROJECT_REPO=${{ needs.prepara.outputs.repo }}
-      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(git:*),Bash(cd:*),Bash(ls:*),Bash(mkdir:*),Bash(gh repo clone:*),Bash(gh issue:*),Bash(gh pr:*),Bash(gh label:*)
+      # Bash senza whitelist: elencare i comandi permessi faceva sprecare
+      # meta' dei turni in rifiuti (comandi composti, cat, touch, npm...).
+      # I limiti veri sono altrove: branch protection, token con poco scope,
+      # runner effimero, e la deny-list in .claude/settings.json.
+      allowed_tools: Read,Write,Edit,Grep,Glob,Bash
