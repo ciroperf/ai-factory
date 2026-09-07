@@ -119,4 +119,8 @@ jobs:
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ steps.cfg.outputs.model_sonnet }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ steps.cfg.outputs.model_haiku }}
           ENABLE_PROMPT_CACHING_1H: ${{ steps.cfg.outputs.caching_1h }}
-          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN != '' && secrets.GH_ADMIN_TOKEN || github.token }}
+          # Nota: claude-code-action sostituisce comunque GH_TOKEN con il token
+          # della propria GitHub App. Nessun token amministrativo entra qui:
+          # cio' che richiede privilegi (creare repo, scrivere segreti) vive in
+          # step bash separati, fuori dal contesto del modello.
+          GH_TOKEN: ${{ github.token }}

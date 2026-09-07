@@ -106,9 +106,14 @@ The secret's value never passes through an agent.
 
 ## 4. The GitHub App
 
-Install the [Claude GitHub App](https://github.com/apps/claude) on `ai-factory`
-and on your portfolio. It's the identity agents commit and comment as — without
-it, workflows start but can't write.
+Install the [Claude GitHub App](https://github.com/apps/claude) — it's the
+identity agents commit and comment as. Without it, workflows start but can't
+write.
+
+**Choose "All repositories", not a hand-picked list.** The Architect creates a
+new repo per project, and the agent has to write into it immediately: a
+selected-repos install wouldn't cover repos that don't exist yet, and every new
+project would stall until you added it by hand.
 
 ---
 

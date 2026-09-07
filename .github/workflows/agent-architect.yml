@@ -1,6 +1,11 @@
 # Architect — trasforma un'idea approvata in un repo con i compiti dentro.
 # Si sveglia quando aggiungi l'etichetta "idea:approved" a una issue
 # (lo fa la PWA quando approvi, o tu a mano da GitHub).
+#
+# Il repo NON lo crea l'agente: lo crea il job "prepara" qui sotto, in bash.
+# Due motivi. Primo, claude-code-action sostituisce GH_TOKEN con il token
+# della propria GitHub App, che non puo' creare repository. Secondo, e piu'
+# importante: cosi' GH_ADMIN_TOKEN non entra mai nel contesto di un modello.
 
 name: agent-architect
 
@@ -24,16 +29,133 @@ permissions:
   actions: read
 
 jobs:
-  architect:
+  # ----------------------------------------------------------------------
+  # 1. Crea e semina il repo del progetto. Nessun modello coinvolto.
+  # ----------------------------------------------------------------------
+  prepara:
     if: >-
       github.event_name == 'workflow_dispatch'
       || github.event.label.name == 'idea:approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      slug: ${{ steps.crea.outputs.slug }}
+      repo: ${{ steps.crea.outputs.repo }}
+      issue: ${{ steps.crea.outputs.issue }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Crea il repo del progetto
+        id: crea
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
+          MODEL_SECRET: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Manca il secret GH_ADMIN_TOKEN (PAT classico, scope repo + workflow)."
+            exit 1
+          fi
+
+          title=$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json title --jq .title)
+          echo "Idea #$ISSUE: $title"
+
+          # titolo -> slug in kebab-case, senza il prefisso [idea]
+          slug=$(python3 - "$title" <<'PY'
+          import re, sys, unicodedata
+          t = sys.argv[1]
+          t = re.sub(r'^\s*\[[^\]]*\]\s*', '', t)
+          t = unicodedata.normalize('NFKD', t).encode('ascii', 'ignore').decode()
+          t = re.sub(r'[^a-zA-Z0-9]+', '-', t).strip('-').lower()
+          print((t or 'progetto')[:40].strip('-'))
+          PY
+          )
+
+          # se lo slug e' gia' preso, aggiungi un suffisso
+          base="$slug"; n=2
+          while gh repo view "$OWNER/$slug" >/dev/null 2>&1; do
+            slug="$base-$n"; n=$((n + 1))
+          done
+          repo="$OWNER/$slug"
+          echo "Repo: $repo"
+
+          gh repo create "$repo" --public \
+            --description "Progetto dell'Officina Agenti — idea #$ISSUE"
+
+          # ---- scheletro iniziale -------------------------------------
+          work=$(mktemp -d)
+          mkdir -p "$work/.github/workflows"
+          cp templates/project-CLAUDE.md "$work/CLAUDE.md"
+          cp templates/project.gitignore "$work/.gitignore"
+          cp templates/agent-builder.yml "$work/.github/workflows/agent-builder.yml"
+          printf '# %s\n\nProgetto dell'"'"'Officina Agenti.\nIdea originale: %s/issues/%s\n' \
+            "$title" "https://github.com/$GITHUB_REPOSITORY" "$ISSUE" > "$work/README.md"
+
+          cd "$work"
+          git init -q -b main
+          git add -A
+          git -c user.name=officina-bot \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Scheletro del progetto"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git"
+          git push -q -u origin main
+          cd - >/dev/null
+
+          # ---- credenziale del modello --------------------------------
+          if [ -n "${MODEL_SECRET:-}" ]; then
+            gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo "$repo" --body "$MODEL_SECRET"
+          elif [ -n "${API_KEY:-}" ]; then
+            gh secret set ANTHROPIC_API_KEY --repo "$repo" --body "$API_KEY"
+          fi
+
+          # ---- protezione di main: gli agenti passano solo da PR ------
+          gh api -X PUT "repos/$repo/branches/main/protection" --input - <<'JSON' || \
+            echo "::warning::Branch protection non applicata, mettila a mano."
+          {
+            "required_status_checks": null,
+            "enforce_admins": false,
+            "required_pull_request_reviews": { "required_approving_review_count": 0 },
+            "restrictions": null
+          }
+          JSON
+
+          gh label create "agent:build" --repo "$repo" --color 1B8079 \
+            --description "Compito pronto per il Builder" 2>/dev/null || true
+          gh label create "agent:queued" --repo "$repo" --color CCCCCC \
+            --description "In coda, non ancora sbloccato" 2>/dev/null || true
+
+          {
+            echo "slug=$slug"
+            echo "repo=$repo"
+            echo "issue=$ISSUE"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Repo creato"
+            echo ""
+            echo "[$repo](https://github.com/$repo) — dall'idea #$ISSUE."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ----------------------------------------------------------------------
+  # 2. L'agente riempie il repo: README vero e compiti per il Builder.
+  # ----------------------------------------------------------------------
+  architect:
+    needs: prepara
     uses: ./.github/workflows/_agent.yml
     secrets: inherit
     with:
       agent: architect
       prompt_file: prompts/architect.md
       vars: |
-        ISSUE_NUMBER=${{ github.event.issue.number || inputs.issue_number }}
+        ISSUE_NUMBER=${{ needs.prepara.outputs.issue }}
         OWNER=${{ github.repository_owner }}
-      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(gh:*),Bash(git:*)
+        SLUG=${{ needs.prepara.outputs.slug }}
+        PROJECT_REPO=${{ needs.prepara.outputs.repo }}
+      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(gh issue:*),Bash(gh api:*),Bash(gh pr:*),Bash(git:*)
