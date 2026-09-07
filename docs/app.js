@@ -659,17 +659,27 @@ async function main() {
   });
   $('#refreshBtn').onclick = refreshView;
   $('#settingsBtn').onclick = () => {
-    $('#tokenInput').value = TOKEN;
+    // Il token non viene mai rimesso nel campo: resterebbe leggibile nel DOM
+    // a chiunque apra gli strumenti sviluppatore o a un'estensione.
+    const input = $('#tokenInput');
+    input.value = '';
+    input.placeholder = TOKEN
+      ? 'Token attivo — incollane un altro per sostituirlo'
+      : 'github_pat_...';
     $('#sheet').hidden = false;
   };
   $('#sheetClose').onclick = () => { $('#sheet').hidden = true; };
   $('#sheet').onclick = (e) => { if (e.target.id === 'sheet') $('#sheet').hidden = true; };
 
   $('#tokenSave').onclick = async () => {
-    await saveToken($('#tokenInput').value.trim());
-    toast(TOKEN
-      ? 'Token salvato e cifrato su questo dispositivo.'
-      : 'Token vuoto.');
+    const typed = $('#tokenInput').value.trim();
+    if (!typed) {
+      toast(TOKEN ? 'Nessuna modifica: il token resta quello.' : 'Campo vuoto.');
+      return;
+    }
+    await saveToken(typed);
+    $('#tokenInput').value = '';
+    toast('Token salvato e cifrato su questo dispositivo.');
     refreshView();
   };
   $('#tokenClear').onclick = async () => {
