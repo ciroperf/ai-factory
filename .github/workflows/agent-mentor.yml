@@ -20,6 +20,15 @@ on:
   repository_dispatch:
     types: [project-published]
 
+# I workflow riutilizzabili non ereditano i permessi: e' il chiamante che deve
+# concederli, e _agent.yml non puo' chiedere piu' di quanto trova qui.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  actions: read
+
 jobs:
   mentor:
     uses: ./.github/workflows/_agent.yml
