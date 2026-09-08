@@ -22,6 +22,9 @@ azure-credentials.json
 # Digest delle release: lo riscrive officina.py prima dello Scout.
 state/feed.md
 
+# Cartella di consegna fra il job dell'agente e quello che pubblica.
+out/
+
 # --- Claude Code ---------------------------------------------
 # settings.json e' condiviso e va committato; questo e' l'override locale.
 .claude/settings.local.json

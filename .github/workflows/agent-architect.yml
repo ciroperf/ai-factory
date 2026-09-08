@@ -18,6 +18,11 @@ on:
         description: Numero della issue con l'idea da realizzare
         required: true
         type: string
+      debug:
+        description: Mostra l'output completo dell'agente nel log
+        required: false
+        default: false
+        type: boolean
 
 # I workflow riutilizzabili non ereditano i permessi: e' il chiamante che deve
 # concederli, e _agent.yml non puo' chiedere piu' di quanto trova qui.
@@ -152,6 +157,8 @@ jobs:
     secrets: inherit
     with:
       agent: architect
+      debug: ${{ inputs.debug || false }}
+      upload_dir: out
       prompt_file: prompts/architect.md
       vars: |
         ISSUE_NUMBER=${{ needs.prepara.outputs.issue }}
@@ -163,3 +170,121 @@ jobs:
       # I limiti veri sono altrove: branch protection, token con poco scope,
       # runner effimero, e la deny-list in .claude/settings.json.
       allowed_tools: Read,Write,Edit,Grep,Glob,Bash
+
+  # ----------------------------------------------------------------------
+  # 3. Pubblica cio' che l'agente ha prodotto.
+  #
+  #    Serve un job a se' perche' il token generato per l'agente vale solo
+  #    per questo repo: scrivere in ciroperf/<progetto> richiede
+  #    GH_ADMIN_TOKEN, che non deve mai entrare nel contesto di un modello.
+  # ----------------------------------------------------------------------
+  pubblica:
+    needs: [prepara, architect]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: officina-output
+          path: out
+
+      - name: Pubblica nel repo del progetto
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          REPO: ${{ needs.prepara.outputs.repo }}
+          SLUG: ${{ needs.prepara.outputs.slug }}
+          ISSUE: ${{ needs.prepara.outputs.issue }}
+        run: |
+          set -euo pipefail
+
+          test -f out/plan.json || { echo "::error::L'agente non ha prodotto out/plan.json"; exit 1; }
+          test -d out/repo     || { echo "::error::L'agente non ha prodotto out/repo/"; exit 1; }
+
+          branch="agent/setup"
+          proj=$(mktemp -d)
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$proj"
+
+          cp -R out/repo/. "$proj/"
+
+          git -C "$proj" checkout -b "$branch"
+          git -C "$proj" add -A
+          git -C "$proj" -c user.name=officina-bot \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Imposta la struttura del progetto"
+          git -C "$proj" push -q -u origin "$branch"
+
+          pr=$(gh pr create --repo "$REPO" --base main --head "$branch" \
+                 --title "Struttura del progetto" \
+                 --body "Scheletro generato dall'Architect a partire dall'idea #${ISSUE}. Il codice arriva dal Builder, un compito alla volta.")
+          echo "PR progetto: $pr"
+
+          # ---- i compiti, dal piano dell'agente -----------------------
+          python3 - "$REPO" "$ISSUE" <<'PY' > /tmp/issues.txt
+          import json, subprocess, sys
+          repo, issue = sys.argv[1], sys.argv[2]
+          plan = json.load(open("out/plan.json", encoding="utf-8"))
+          tasks = plan.get("tasks", [])
+          if not 1 <= len(tasks) <= 12:
+              sys.exit(f"plan.json: {len(tasks)} compiti, fuori dall'intervallo atteso")
+          for i, t in enumerate(tasks):
+              label = "agent:build" if i == 0 else "agent:queued"
+              url = subprocess.run(
+                  ["gh", "issue", "create", "--repo", repo, "--label", label,
+                   "--title", t["title"], "--body", t["body"]],
+                  capture_output=True, text=True, check=True).stdout.strip()
+              print(f"- {label}: {url}")
+          PY
+          cat /tmp/issues.txt
+
+          # ---- registro nel control plane ------------------------------
+          python3 - "$REPO" "$SLUG" "$ISSUE" <<'PY'
+          import json, sys
+          from datetime import datetime, timezone
+          repo, slug, issue = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          plan = json.load(open("out/plan.json", encoding="utf-8"))
+          state = json.load(open("state/projects.json", encoding="utf-8"))
+          state["projects"] = [p for p in state.get("projects", []) if p.get("slug") != slug]
+          state["projects"].append({
+              "slug": slug,
+              "title": plan.get("title", slug),
+              "repo": repo,
+              "stage": "building",
+              "issue": issue,
+              "skills": plan.get("skills", []),
+              "portfolioPr": None,
+          })
+          state["updatedAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+          json.dump(state, open("state/projects.json", "w", encoding="utf-8"),
+                    indent=2, ensure_ascii=False)
+          PY
+
+          reg="agent/registro-${SLUG}"
+          git config user.name officina-bot
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$reg"
+          git add state/projects.json
+          git commit -q -m "Registra il progetto ${SLUG}"
+          git push -q -u origin "$reg"
+          reg_pr=$(gh pr create --base main --head "$reg" \
+                     --title "Registra ${SLUG}" \
+                     --body "Voce di registro per ${REPO}, dall'idea #${ISSUE}.")
+
+          # ---- chiudi il cerchio ---------------------------------------
+          gh issue comment "$ISSUE" --body "$(printf 'Progetto avviato: https://github.com/%s\n\nCompiti creati:\n%s\n\nPR struttura: %s\nPR registro: %s' \
+            "$REPO" "$(cat /tmp/issues.txt)" "$pr" "$reg_pr")"
+          gh issue close "$ISSUE"
+
+          {
+            echo "### Progetto avviato"
+            echo ""
+            echo "- Repo: [$REPO](https://github.com/$REPO)"
+            echo "- PR struttura: $pr"
+            echo "- PR registro: $reg_pr"
+            echo ""
+            cat /tmp/issues.txt
+          } >> "$GITHUB_STEP_SUMMARY"

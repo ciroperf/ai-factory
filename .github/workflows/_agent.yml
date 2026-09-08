@@ -27,6 +27,21 @@ on:
         description: Prepara state/feed.md prima di svegliare il modello
         type: boolean
         default: false
+      upload_dir:
+        description: >-
+          Cartella prodotta dall'agente da consegnare al job successivo.
+          Serve quando il lavoro va scritto in un repo diverso da questo:
+          il token della run e' scoped solo al repo corrente, quindi a
+          pubblicare ci pensa uno step bash con la credenziale giusta.
+        type: string
+        default: ""
+      debug:
+        description: >-
+          Mostra l'output completo dell'agente nel log. Serve per capire un
+          fallimento, ma stampa anche l'output degli strumenti: usalo solo
+          quando ti serve, e mai su un repo dove passano dati sensibili.
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -106,6 +121,7 @@ jobs:
           claude_code_oauth_token: ${{ steps.cfg.outputs.provider == 'subscription' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           anthropic_api_key: ${{ steps.cfg.outputs.provider == 'api-key' && secrets.ANTHROPIC_API_KEY || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
+          show_full_output: ${{ inputs.debug }}
           claude_args: >-
             --model ${{ steps.cfg.outputs.model }}
             --max-turns ${{ steps.cfg.outputs.max_turns }}
@@ -124,3 +140,13 @@ jobs:
           # cio' che richiede privilegi (creare repo, scrivere segreti) vive in
           # step bash separati, fuori dal contesto del modello.
           GH_TOKEN: ${{ github.token }}
+
+      # Consegna al job successivo cio' che l'agente ha scritto su disco.
+      - name: Raccogli l'output dell'agente
+        if: steps.pre.outputs.ok == 'true' && inputs.upload_dir != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: officina-output
+          path: ${{ inputs.upload_dir }}
+          if-no-files-found: error
+          retention-days: 1
