@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-08T09:27:37+00:00",
+  "updatedAt": "2026-09-08T14:01:16+00:00",
   "projects": [
     {
       "slug": "ai-factory-tic-tac-toe",
@@ -11,6 +11,21 @@
         "JavaScript vanilla",
         "UI browser interattiva",
         "Test automation (node:test)"
+      ],
+      "portfolioPr": null
+    },
+    {
+      "slug": "react-form-schema-builder",
+      "title": "React Form Schema Builder",
+      "repo": "ciroperf/react-form-schema-builder",
+      "stage": "building",
+      "issue": 9,
+      "skills": [
+        "React hooks complessi",
+        "Drag-drop UX",
+        "Code generation",
+        "Schema design (JSON Schema / OpenAPI)",
+        "Library integration"
       ],
       "portfolioPr": null
     }
