@@ -5,7 +5,7 @@
       "slug": "ai-factory-tic-tac-toe",
       "title": "Tris (tic-tac-toe): 1v1 locale o contro CPU",
       "repo": "ciroperf/ai-factory-tic-tac-toe",
-      "stage": "building",
+      "stage": "published",
       "issue": 4,
       "skills": [
         "JavaScript vanilla",
