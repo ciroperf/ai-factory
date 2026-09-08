@@ -1,18 +1,4 @@
 {
-  "updatedAt": "2026-09-08T09:27:37+00:00",
-  "projects": [
-    {
-      "slug": "ai-factory-tic-tac-toe",
-      "title": "Tris (tic-tac-toe): 1v1 locale o contro CPU",
-      "repo": "ciroperf/ai-factory-tic-tac-toe",
-      "stage": "building",
-      "issue": 4,
-      "skills": [
-        "JavaScript vanilla",
-        "UI browser interattiva",
-        "Test automation (node:test)"
-      ],
-      "portfolioPr": null
-    }
-  ]
+  "updatedAt": "2026-09-07T00:00:00Z",
+  "projects": []
 }

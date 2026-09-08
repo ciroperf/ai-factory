@@ -35,7 +35,18 @@ sovrascrivendo lo scheletro.
   un `.csproj`, quello che serve. Struttura, non funzionalita': il codice lo
   scrive il Builder, un compito alla volta.
 
-Non creare `.github/workflows/`: il workflow del Builder e' gia' nel repo.
+Un solo file in `.github/workflows/`: **`ci.yml`**, e deve chiamarsi cosi'.
+Il Builder e la catena di automazione sono gia' nel repo, non toccarli.
+
+`out/repo/.github/workflows/ci.yml` deve:
+- chiamarsi `name: ci` (esattamente: la catena si aggancia a questo nome)
+- girare `on: [pull_request]` e su push a main
+- installare quel che serve ed eseguire i test dello stack che hai scelto
+
+Questo file conta piu' di quanto sembri: se la CI passa su una PR
+dell'agente, la PR viene mergiata da sola e il compito successivo si
+sblocca. Se la CI e' sbagliata o assente, tutto resta fermo ad aspettare
+una persona. Scrivila per lo stack vero, non generica.
 
 ## 3. Scrivi il piano in `out/plan.json`
 

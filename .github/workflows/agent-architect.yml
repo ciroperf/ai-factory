@@ -61,6 +61,7 @@ jobs:
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           MODEL_SECRET: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CHAIN_TOKEN: ${{ secrets.OFFICINA_CHAIN_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -100,6 +101,7 @@ jobs:
           cp templates/project-CLAUDE.md "$work/CLAUDE.md"
           cp templates/project.gitignore "$work/.gitignore"
           cp templates/agent-builder.yml "$work/.github/workflows/agent-builder.yml"
+          cp templates/project-chain.yml "$work/.github/workflows/chain.yml"
           printf '# %s\n\nProgetto dell'"'"'Officina Agenti.\nIdea originale: %s/issues/%s\n' \
             "$title" "https://github.com/$GITHUB_REPOSITORY" "$ISSUE" > "$work/README.md"
 
@@ -118,6 +120,13 @@ jobs:
             gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo "$repo" --body "$MODEL_SECRET"
           elif [ -n "${API_KEY:-}" ]; then
             gh secret set ANTHROPIC_API_KEY --repo "$repo" --body "$API_KEY"
+          fi
+
+          # Serve alla catena: senza, le etichette le sposti a mano.
+          if [ -n "${CHAIN_TOKEN:-}" ]; then
+            gh secret set OFFICINA_CHAIN_TOKEN --repo "$repo" --body "$CHAIN_TOKEN"
+          else
+            echo "::warning::Manca OFFICINA_CHAIN_TOKEN: niente auto-merge ne' sblocco automatico."
           fi
 
           # ---- protezione di main: gli agenti passano solo da PR ------

@@ -113,8 +113,10 @@ jobs:
             - Se il compito e' ambiguo, commenta la domanda sull'issue e fermati.
               Non indovinare.
 
-            Alla fine: apri la PR verso main, commenta l'issue con il link,
-            fermati. Non fare merge.
+            Alla fine: apri la PR verso main con "Closes #${{ github.event.issue.number }}"
+            nella descrizione — serve a chiudere l'issue al merge e a far
+            partire il compito successivo. Commenta l'issue con il link,
+            poi fermati. Non fare merge.
           # --allowedTools NON e' opzionale in automation mode: senza una lista,
           # ogni uso di uno strumento viene negato e l'agente si ferma al primo
           # turno, con il job verde e nessun risultato. Non c'e' nessuno che

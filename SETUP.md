@@ -87,6 +87,7 @@ repositories (or on an organization). Go to
 | --- | --- |
 | `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` / the three `AZURE_*` | Whichever provider you chose |
 | `GH_ADMIN_TOKEN` | Always. Classic PAT with **`repo`** and **`workflow`** scopes |
+| `OFFICINA_CHAIN_TOKEN` | For the automation chain. Fine-grained PAT, all Officina repos, with `Issues`, `Pull requests`, `Contents` and `Actions` read/write |
 
 `GH_ADMIN_TOKEN` needs `workflow` because the Architect commits
 `.github/workflows/agent-builder.yml` into each new repo, and GitHub rejects any
@@ -101,6 +102,19 @@ The secret's value never passes through an agent.
 
 > Prefer to stop thinking about it? Move the repos into a free **organization** —
 > org secrets cover every public repo, present and future, on the free plan.
+
+### Why the chain needs its own token
+
+`OFFICINA_CHAIN_TOKEN` exists because of one GitHub rule: **events produced by
+the built-in `GITHUB_TOKEN` never start another workflow**. A label applied by
+`GITHUB_TOKEN` would sit there and wake nothing. That single rule is what breaks
+most home-made automation chains, and a PAT is the way around it.
+
+Keep it narrow — Issues, Pull requests, Contents, Actions, on the Officina repos
+only. It's far weaker than `GH_ADMIN_TOKEN`, and unlike that one it does live in
+every project repo, so it's worth keeping it that way. Without it the system
+still works: you move the labels and merge by hand, and the workflows say so in
+their summary instead of failing.
 
 ---
 
