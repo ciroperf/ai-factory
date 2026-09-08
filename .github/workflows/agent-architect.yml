@@ -102,6 +102,11 @@ jobs:
           cp templates/project.gitignore "$work/.gitignore"
           cp templates/agent-builder.yml "$work/.github/workflows/agent-builder.yml"
           cp templates/project-chain.yml "$work/.github/workflows/chain.yml"
+          # La CI la seminiamo noi, in bash. Chiederla al prompt non basta:
+          # l'agente puo' saltarla, e senza un workflow di nome "ci" la
+          # catena non ha nulla a cui agganciarsi. Se l'Architect ne scrive
+          # una migliore per il suo stack, il copy di out/repo la sostituisce.
+          cp templates/project-ci.yml "$work/.github/workflows/ci.yml"
           printf '# %s\n\nProgetto dell'"'"'Officina Agenti.\nIdea originale: %s/issues/%s\n' \
             "$title" "https://github.com/$GITHUB_REPOSITORY" "$ISSUE" > "$work/README.md"
 
@@ -248,10 +253,24 @@ jobs:
 
           pr=$(gh pr create --repo "$REPO" --base main --head "$branch" \
                  --title "Struttura del progetto" \
-                 --body "Scheletro generato dall'Architect a partire dall'idea #${ISSUE}. Il codice arriva dal Builder, un compito alla volta.")
+                 --body "$(printf '%s\n' \
+                   "Scheletro generato dall'Architect a partire dall'idea #${ISSUE}." \
+                   "" \
+                   "**Mergia questa PR per prima.** Finche' resta aperta, su \`main\` non ci sono" \
+                   "ne' \`package.json\` ne' \`src/\`: i compiti restano tutti \`agent:queued\` e il" \
+                   "Builder non parte. Al merge, \`chain.yml\` sblocca il primo compito." \
+                   "" \
+                   "Il codice arriva dal Builder, un compito alla volta.")")
           echo "PR progetto: $pr"
 
           # ---- i compiti, dal piano dell'agente -----------------------
+          # Tutti nascono "agent:queued", nessuno escluso. Il primo compito
+          # NON puo' partire subito: la PR "Struttura del progetto" e' ancora
+          # aperta, quindi su main non c'e' ne' package.json ne' src/, e il
+          # Builder lavorerebbe su un repo vuoto. Il via lo da' il merge di
+          # quella PR: chain.yml (job promote) scatta sulla PR chiusa e
+          # promuove il compito piu' vecchio. Senza OFFICINA_CHAIN_TOKEN
+          # sposti tu l'etichetta, una volta sola, dopo il merge.
           python3 - "$REPO" "$ISSUE" <<'PY' > /tmp/issues.txt
           import json, subprocess, sys
           repo, issue = sys.argv[1], sys.argv[2]
@@ -259,13 +278,12 @@ jobs:
           tasks = plan.get("tasks", [])
           if not 1 <= len(tasks) <= 12:
               sys.exit(f"plan.json: {len(tasks)} compiti, fuori dall'intervallo atteso")
-          for i, t in enumerate(tasks):
-              label = "agent:build" if i == 0 else "agent:queued"
+          for t in tasks:
               url = subprocess.run(
-                  ["gh", "issue", "create", "--repo", repo, "--label", label,
+                  ["gh", "issue", "create", "--repo", repo, "--label", "agent:queued",
                    "--title", t["title"], "--body", t["body"]],
                   capture_output=True, text=True, check=True).stdout.strip()
-              print(f"- {label}: {url}")
+              print(f"- agent:queued: {url}")
           PY
           cat /tmp/issues.txt
 
@@ -313,6 +331,11 @@ jobs:
             echo "- Repo: [$REPO](https://github.com/$REPO)"
             echo "- PR struttura: $pr"
             echo "- PR registro: $reg_pr"
+            echo ""
+            echo "**Prossimo passo: mergia la PR struttura.** Solo dopo il merge"
+            echo "il primo compito passa da \`agent:queued\` a \`agent:build\` e il"
+            echo "Builder parte. Se \`OFFICINA_CHAIN_TOKEN\` non c'e', sposta"
+            echo "l'etichetta a mano sul primo compito dell'elenco."
             echo ""
             cat /tmp/issues.txt
           } >> "$GITHUB_STEP_SUMMARY"

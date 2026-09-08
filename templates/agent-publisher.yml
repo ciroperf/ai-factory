@@ -111,10 +111,16 @@ jobs:
                leggilo prima, e' l'unico file di riferimento che ti serve.
                Prima persona, niente marketing, niente elenchi di buzzword.
 
-            4. public/images/<SLUG>.png — se il README del repo di progetto ha
-               uno screenshot, riusa quel file. Se non c'e', NON inventare
-               un'immagine: lascia il riferimento e scrivi nella descrizione
-               della PR che lo screenshot va aggiunto a mano.
+            4. public/images/<SLUG>.png — lo screenshot. Il repo del progetto e'
+               pubblico, quindi puoi scaricarlo direttamente, per esempio:
+                 curl -fsSL -o public/images/<SLUG>.png \
+                   https://raw.githubusercontent.com/<REPO>/main/assets/screenshot.png
+               Cerca prima nel README del progetto quale file usa
+               (leggilo da raw.githubusercontent, non provare a clonare:
+               il token di questa run vale solo per il repo del portfolio).
+               Se non trovi nessuno screenshot, NON inventare un'immagine:
+               lascia il riferimento e scrivi nella descrizione della PR che
+               va aggiunto a mano.
 
             5. Apri la PR verso main e FERMATI. Non fare merge. Nella
                descrizione elenca i file toccati e cosa resta da verificare.

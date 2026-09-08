@@ -233,6 +233,12 @@ should appear within a few minutes.
 From there the loop is real: approve an idea with `idea:approved`, and the
 Architect takes over.
 
+It leaves you a new repo with two open PRs and every task labelled
+`agent:queued`. **Merge "Struttura del progetto" first** — until you do, `main`
+has no `package.json` and no `src/`, so a Builder would be writing into an empty
+repo. That merge is what releases the first task; from then on each merged PR
+releases the next one on its own.
+
 ---
 
 ## Notes

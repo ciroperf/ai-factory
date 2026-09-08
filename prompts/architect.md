@@ -35,18 +35,17 @@ sovrascrivendo lo scheletro.
   un `.csproj`, quello che serve. Struttura, non funzionalita': il codice lo
   scrive il Builder, un compito alla volta.
 
-Un solo file in `.github/workflows/`: **`ci.yml`**, e deve chiamarsi cosi'.
-Il Builder e la catena di automazione sono gia' nel repo, non toccarli.
+**Non toccare `.github/workflows/`.** Builder, catena e una CI generica
+sono gia' nel repo. L'unica eccezione: se lo stack che hai scelto ha
+bisogno di passi che una CI generica non puo' indovinare (un servizio,
+una variabile d'ambiente, un generatore da lanciare prima dei test),
+allora scrivi `out/repo/.github/workflows/ci.yml` e sostituiscila.
+In quel caso deve chiamarsi `name: ci` esattamente — la catena si
+aggancia a quel nome — e girare `on: [pull_request]`.
 
-`out/repo/.github/workflows/ci.yml` deve:
-- chiamarsi `name: ci` (esattamente: la catena si aggancia a questo nome)
-- girare `on: [pull_request]` e su push a main
-- installare quel che serve ed eseguire i test dello stack che hai scelto
-
-Questo file conta piu' di quanto sembri: se la CI passa su una PR
-dell'agente, la PR viene mergiata da sola e il compito successivo si
-sblocca. Se la CI e' sbagliata o assente, tutto resta fermo ad aspettare
-una persona. Scrivila per lo stack vero, non generica.
+Nel dubbio, lascia stare: la CI generica riconosce Node, .NET, Flutter e
+Python da sola, e una CI sbagliata blocca il progetto piu' di una
+generica.
 
 ## 3. Scrivi il piano in `out/plan.json`
 
