@@ -1,0 +1,108 @@
+# I workflow dei repo di progetto sono COPIE, fatte una volta sola quando
+# l'Architect crea il repo. Da quel momento nessuno le ri-sincronizza: se
+# correggi un template qui, i progetti gia' esistenti restano con la
+# versione vecchia, e lo scopri quando uno di loro fallisce per un bug che
+# avevi gia' sistemato.
+#
+# Questo workflow chiude quel buco. Parte quando cambi un template su main
+# e riporta i repo registrati in state/projects.json alla versione corrente.
+#
+# Perche' scrive dritto su main invece di aprire una PR: questi sono file
+# di infrastruttura, non codice del progetto. Il loro contenuto arriva da
+# qui, dove lo hai gia' rivisto tu. Una PR per repo a ogni correzione
+# sarebbe rumore che finiresti per mergiare senza leggere — e il rumore che
+# si merge senza leggere e' peggio di nessuna revisione, perche' sembra
+# revisione. Il codice dei progetti continua a passare solo da PR.
+#
+# Tocca ESATTAMENTE i file elencati in MANAGED. Tutto il resto di quei
+# repo non viene mai letto ne' scritto.
+
+name: sync-workflows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - templates/agent-builder.yml
+      - templates/project-chain.yml
+      - templates/project-ci.yml
+      - templates/project-CLAUDE.md
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Un solo repo (owner/nome). Vuoto = tutti quelli registrati"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Allinea i repo di progetto
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          ONLY_REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import base64, json, os, subprocess, sys
+
+          # sorgente in questo repo -> destinazione nel repo di progetto
+          MANAGED = {
+              "templates/agent-builder.yml": ".github/workflows/agent-builder.yml",
+              "templates/project-chain.yml": ".github/workflows/chain.yml",
+              "templates/project-ci.yml":    ".github/workflows/ci.yml",
+              "templates/project-CLAUDE.md": "CLAUDE.md",
+          }
+
+          def gh(*args, check=True):
+              r = subprocess.run(["gh", *args], capture_output=True, text=True)
+              if check and r.returncode:
+                  raise RuntimeError(r.stderr.strip())
+              return r
+
+          only = os.environ.get("ONLY_REPO", "").strip()
+          if only:
+              repos = [only]
+          else:
+              state = json.load(open("state/projects.json", encoding="utf-8"))
+              repos = [p["repo"] for p in state.get("projects", []) if p.get("repo")]
+
+          if not repos:
+              print("Nessun repo di progetto registrato.")
+              sys.exit(0)
+
+          print("| Repo | File | Esito |")
+          print("|---|---|---|")
+
+          for repo in repos:
+              for src, dest in MANAGED.items():
+                  local = open(src, "rb").read()
+                  r = gh("api", f"repos/{repo}/contents/{dest}", check=False)
+                  sha = None
+                  if r.returncode == 0:
+                      remote = json.loads(r.stdout)
+                      sha = remote["sha"]
+                      if base64.b64decode(remote["content"]) == local:
+                          continue                      # gia' allineato: niente commit
+                  elif "Not Found" not in r.stderr:
+                      print(f"| `{repo}` | `{dest}` | **errore in lettura** |")
+                      continue
+
+                  args = ["api", "-X", "PUT", f"repos/{repo}/contents/{dest}",
+                          "-f", f"message=Allinea {dest} al template dell'Officina",
+                          "-f", "content=" + base64.b64encode(local).decode()]
+                  if sha:
+                      args += ["-f", f"sha={sha}"]
+                  w = gh(*args, check=False)
+                  esito = ("aggiornato" if sha else "aggiunto") if w.returncode == 0 \
+                          else "**fallito** — GH_ADMIN_TOKEN senza scope `workflow`, o protezione di main senza bypass admin"
+                  print(f"| `{repo}` | `{dest}` | {esito} |")
+          PY

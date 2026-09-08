@@ -100,6 +100,12 @@ Add the model secret to the portfolio repo too (not `GH_ADMIN_TOKEN`).
 Architect's PR changes `state/projects.json`, which triggers `sync-secrets`.
 The secret's value never passes through an agent.
 
+`sync-workflows` is the same idea for files: change a template on `main` and
+every registered project repo gets the new `agent-builder.yml`, `chain.yml`,
+`ci.yml` and `CLAUDE.md`. Only those four paths are ever touched. Without it a
+fix to a template only reaches projects created after it, and the older ones
+keep failing on a bug you already fixed.
+
 > Prefer to stop thinking about it? Move the repos into a free **organization** —
 > org secrets cover every public repo, present and future, on the free plan.
 
