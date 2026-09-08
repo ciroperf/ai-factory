@@ -26,6 +26,9 @@ on:
     types: [completed]
   pull_request:
     types: [closed]
+  # Scialuppa: se la promozione si e' persa per qualsiasi motivo, questa
+  # rimette in moto la coda senza doverti ricordare quale etichetta va dove.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -79,9 +82,10 @@ jobs:
   # --------------------------------------------------------------------
   promote:
     if: >-
-      github.event_name == 'pull_request'
-      && github.event.pull_request.merged == true
-      && startsWith(github.event.pull_request.head.ref, 'agent/')
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.merged == true
+          && startsWith(github.event.pull_request.head.ref, 'agent/'))
     runs-on: ubuntu-latest
     steps:
       - name: Sblocca il compito successivo
@@ -96,10 +100,24 @@ jobs:
           fi
 
           # Se un compito e' gia' in lavorazione, non se ne sblocca un altro.
-          attivi=$(gh issue list --repo "$GITHUB_REPOSITORY" \
-                     --label "agent:build" --state open --json number --jq 'length')
+          #
+          # C'e' una corsa da gestire: la PR appena mergiata contiene
+          # "Closes #N", e GitHub chiude quella issue in modo asincrono
+          # rispetto all'evento che ha svegliato questo job. Se guardiamo
+          # troppo presto vediamo ancora aperto il compito che si e' appena
+          # concluso, decidiamo che c'e' lavoro in corso, e la catena si
+          # ferma per sempre — senza errori, il che e' il modo peggiore di
+          # fermarsi. Quindi aspettiamo che il conto si assesti.
+          attivi=1
+          for _ in 1 2 3 4 5 6; do
+            attivi=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+                       --label "agent:build" --state open --json number --jq 'length')
+            [ "$attivi" -eq 0 ] && break
+            sleep 5
+          done
           if [ "$attivi" -gt 0 ]; then
-            echo "C'e' gia' un compito in lavorazione. Nulla da sbloccare." >> "$GITHUB_STEP_SUMMARY"
+            echo "C'e' gia' un compito in lavorazione dopo 30s di attesa. Nulla da sbloccare." \
+              >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
