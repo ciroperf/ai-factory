@@ -131,6 +131,25 @@ jobs:
           }
           JSON
 
+          # ---- installa la Claude App sul repo nuovo -------------------
+          # Senza questo, se l'App e' installata su "repository selezionati",
+          # il repo appena creato non e' coperto e il Builder non puo'
+          # scriverci. Meglio aggiungerlo qui che pretendere l'installazione
+          # su tutti i repo dell'account.
+          inst=$(gh api /user/installations \
+                   --jq '.installations[] | select(.app_slug=="claude") | .id' 2>/dev/null | head -1 || true)
+          if [ -n "${inst:-}" ]; then
+            repo_id=$(gh api "repos/$repo" --jq .id)
+            if gh api -X PUT "/user/installations/$inst/repositories/$repo_id" >/dev/null 2>&1; then
+              echo "Claude App aggiunta a $repo"
+            else
+              echo "::warning::Non sono riuscito ad aggiungere la Claude App a $repo. \
+          Se e' installata su 'All repositories' va bene lo stesso; altrimenti aggiungilo a mano."
+            fi
+          else
+            echo "::warning::Claude App non trovata fra le installazioni di questo token."
+          fi
+
           gh label create "agent:build" --repo "$repo" --color 1B8079 \
             --description "Compito pronto per il Builder" 2>/dev/null || true
           gh label create "agent:queued" --repo "$repo" --color CCCCCC \

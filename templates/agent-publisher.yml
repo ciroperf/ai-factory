@@ -118,9 +118,14 @@ jobs:
 
             5. Apri la PR verso main e FERMATI. Non fare merge. Nella
                descrizione elenca i file toccati e cosa resta da verificare.
+          # --allowedTools NON e' opzionale in automation mode: senza una lista,
+          # ogni uso di uno strumento viene negato e l'agente si ferma al primo
+          # turno, con il job verde e nessun risultato. Non c'e' nessuno che
+          # possa approvare a mano su un runner.
           claude_args: >-
             --model ${{ env.MODEL }}
             --max-turns ${{ env.MAX_TURNS }}
+            --allowedTools "Read,Write,Edit,Grep,Glob,Bash"
         env:
           ANTHROPIC_FOUNDRY_RESOURCE: ${{ env.FOUNDRY_RESOURCE }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ env.MODEL }}

@@ -21,6 +21,11 @@ on:
         description: Cosa deve fare l'agente
         required: true
         type: string
+      debug:
+        description: Mostra l'output completo dell'agente nel log
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -89,6 +94,7 @@ jobs:
           use_foundry: ${{ env.PROVIDER == 'foundry' }}
           claude_code_oauth_token: ${{ env.PROVIDER == 'subscription' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           anthropic_api_key: ${{ env.PROVIDER == 'api-key' && secrets.ANTHROPIC_API_KEY || '' }}
+          show_full_output: ${{ inputs.debug || false }}
           base_branch: main
           branch_prefix: agent/
           prompt: |
@@ -109,9 +115,14 @@ jobs:
 
             Alla fine: apri la PR verso main, commenta l'issue con il link,
             fermati. Non fare merge.
+          # --allowedTools NON e' opzionale in automation mode: senza una lista,
+          # ogni uso di uno strumento viene negato e l'agente si ferma al primo
+          # turno, con il job verde e nessun risultato. Non c'e' nessuno che
+          # possa approvare a mano su un runner.
           claude_args: >-
             --model ${{ env.MODEL }}
             --max-turns ${{ env.MAX_TURNS }}
+            --allowedTools "Read,Write,Edit,Grep,Glob,Bash"
         env:
           ANTHROPIC_FOUNDRY_RESOURCE: ${{ env.FOUNDRY_RESOURCE }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ env.MODEL }}
