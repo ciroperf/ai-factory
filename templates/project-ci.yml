@@ -35,6 +35,14 @@ jobs:
           set -euo pipefail
           if [ -f package.json ]; then
             echo "kind=node" >> "$GITHUB_OUTPUT"
+            # La cache di setup-node vuole un lockfile e va in errore se non
+            # lo trova. Un repo appena impostato dall'Architect non ce l'ha
+            # ancora: qui la cache si accende solo quando c'e' davvero.
+            if [ -f package-lock.json ]; then
+              echo "npm_cache=npm" >> "$GITHUB_OUTPUT"
+            else
+              echo "npm_cache=" >> "$GITHUB_OUTPUT"
+            fi
           elif ls *.sln **/*.csproj >/dev/null 2>&1; then
             echo "kind=dotnet" >> "$GITHUB_OUTPUT"
           elif [ -f pubspec.yaml ]; then
@@ -49,8 +57,8 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.stack.outputs.kind == 'node'
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
+          cache: ${{ steps.stack.outputs.npm_cache }}
 
       - name: Node — install, build, test
         if: steps.stack.outputs.kind == 'node'
