@@ -86,8 +86,8 @@ agents:
     timeout_min: 15
   mentor:
     model: sonnet
-    max_turns: 15
-    timeout_min: 20
+    max_turns: 30          # legge un progetto intero e ne scrive l'analisi
+    timeout_min: 25
 
 # ------------------------------------------------------------
 #  GUARDRAIL — qui si tiene sotto controllo la spesa.

@@ -17,6 +17,11 @@ on:
         description: "Repo del progetto, formato owner/nome"
         required: true
         type: string
+      debug:
+        description: Mostra l'output completo dell'agente nel log
+        required: false
+        default: false
+        type: boolean
   repository_dispatch:
     types: [project-published]
 
@@ -35,8 +40,12 @@ jobs:
     secrets: inherit
     with:
       agent: mentor
+      debug: ${{ inputs.debug || false }}
       prompt_file: prompts/mentor.md
       vars: |
         SLUG=${{ inputs.slug || github.event.client_payload.slug }}
         PROJECT_REPO=${{ inputs.project_repo || github.event.client_payload.repo }}
-      allowed_tools: Read,Write,Edit,Grep,Glob,Bash(gh pr:*),Bash(gh repo view:*),Bash(git:*)
+      # Come per l'Architect: la whitelist costava piu' turni di quanti ne
+      # risparmiasse. I limiti veri sono la deny-list in .claude/settings.json
+      # e il fatto che il token della run vale solo per questo repo.
+      allowed_tools: Read,Write,Edit,Grep,Glob,Bash
