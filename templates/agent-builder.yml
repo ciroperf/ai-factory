@@ -40,7 +40,12 @@ env:
   MODEL: claude-sonnet-5          # su foundry: il nome del deployment
   MODEL_HAIKU: claude-haiku-4-5   # task di contorno sul modello piccolo
   FOUNDRY_RESOURCE: ciro-foundry  # ignorato se PROVIDER non e' foundry
-  MAX_TURNS: "40"
+  # 40 non bastavano per un compito con dipendenze nuove + due componenti +
+  # test: l'agente finiva il lavoro al turno 43, apriva la PR, e poi l'action
+  # falliva lo stesso perche' il suo controllo finale e' piu' severo di quanto
+  # la SDK abbia imposto durante la run. Job rosso su lavoro riuscito: il
+  # peggiore dei due errori, perche' insegna a ignorare il rosso.
+  MAX_TURNS: "80"
   MAX_OPEN_PRS: "3"
   # ------------------------------------------------
 

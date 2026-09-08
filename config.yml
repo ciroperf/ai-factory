@@ -65,7 +65,10 @@ foundry:
 #  AGENTI
 #  Un agente = un modello + un tetto di turni + un timeout.
 #  Regola: il modello piu' piccolo che sa fare quel lavoro.
-#  Alzare max_turns e' la leva che fa crescere di piu' il costo.
+#  max_turns NON e' un budget: e' il freno contro un agente in loop. Il costo
+#  vero lo fa la dimensione del compito. Tienilo largo abbastanza che un
+#  compito normale non lo tocchi mai (un job rosso su lavoro riuscito insegna
+#  a ignorare il rosso) e stretto abbastanza che un loop si fermi in fretta.
 # ------------------------------------------------------------
 agents:
   scout:
@@ -74,11 +77,11 @@ agents:
     timeout_min: 10
   architect:
     model: sonnet
-    max_turns: 45          # clona, scrive, apre 2 PR e 6 issue: 20 non bastavano
+    max_turns: 60          # osservato: 19 su un progetto piccolo, ma varia molto
     timeout_min: 30
   builder:
     model: sonnet
-    max_turns: 40
+    max_turns: 80          # osservato: 43 su un compito con dipendenze nuove + test
     timeout_min: 35
   publisher:
     model: haiku
@@ -86,7 +89,7 @@ agents:
     timeout_min: 15
   mentor:
     model: sonnet
-    max_turns: 30          # legge un progetto intero e ne scrive l'analisi
+    max_turns: 45          # osservato: 16, ma legge un progetto intero
     timeout_min: 25
 
 # ------------------------------------------------------------
