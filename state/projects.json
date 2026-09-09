@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-08T14:01:16+00:00",
+  "updatedAt": "2026-09-09T20:41:10+00:00",
   "projects": [
     {
       "slug": "ai-factory-tic-tac-toe",
@@ -26,6 +26,20 @@
         "Code generation",
         "Schema design (JSON Schema / OpenAPI)",
         "Library integration"
+      ],
+      "portfolioPr": null
+    },
+    {
+      "slug": "cardtrader-shop-optimizer",
+      "title": "CardTrader Deck Optimizer",
+      "repo": "ciroperf/cardtrader-shop-optimizer",
+      "stage": "building",
+      "issue": 11,
+      "skills": [
+        "Python",
+        "API REST",
+        "GUI desktop (tkinter)",
+        "Fuzzy matching"
       ],
       "portfolioPr": null
     }
