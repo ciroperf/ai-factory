@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-09T20:41:10+00:00",
+  "updatedAt": "2026-09-14T18:40:17+00:00",
   "projects": [
     {
       "slug": "ai-factory-tic-tac-toe",
@@ -40,6 +40,20 @@
         "API REST",
         "GUI desktop (tkinter)",
         "Fuzzy matching"
+      ],
+      "portfolioPr": null
+    },
+    {
+      "slug": "redis-sample",
+      "title": "redis-sample — vantaggi del caching Redis in un contesto enterprise",
+      "repo": "ciroperf/redis-sample",
+      "stage": "building",
+      "issue": 16,
+      "skills": [
+        "Python/FastAPI",
+        "Redis",
+        "Terraform/Azure",
+        "Data viz con matplotlib"
       ],
       "portfolioPr": null
     }
