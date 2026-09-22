@@ -73,7 +73,7 @@ foundry:
 agents:
   scout:
     model: haiku
-    max_turns: 8
+    max_turns: 16
     timeout_min: 10
   architect:
     model: sonnet
