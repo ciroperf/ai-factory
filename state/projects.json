@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-14T18:40:17+00:00",
+  "updatedAt": "2026-10-11T08:41:32+00:00",
   "projects": [
     {
       "slug": "ai-factory-tic-tac-toe",
@@ -54,6 +54,19 @@
         "Redis",
         "Terraform/Azure",
         "Data viz con matplotlib"
+      ],
+      "portfolioPr": null
+    },
+    {
+      "slug": "mini-mvp",
+      "title": "mini-mvp — API Note con Postgres, Redis e Kubernetes",
+      "repo": "ciroperf/mini-mvp",
+      "stage": "building",
+      "issue": 30,
+      "skills": [
+        "FastAPI",
+        "Postgres + caching Redis",
+        "Kubernetes e CI/CD"
       ],
       "portfolioPr": null
     }
